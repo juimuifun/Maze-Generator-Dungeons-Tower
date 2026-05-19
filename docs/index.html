@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Minecraft Maze Simulator</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="app-layout">
+        <!-- Sidebar ด้านซ้าย -->
+        <div class="sidebar">
+            <h2>Maze Simulator</h2>
+            
+            <details class="sidebar-section" open>
+                <summary>⚙️ Scale & Settings</summary>
+                <div class="settings-panel">
+                    <label>Size (Width x Length):<br>
+                        <input type="number" id="width" value="15" style="width: 60px;"> x 
+                        <input type="number" id="length" value="15" style="width: 60px;">
+                    </label>
+                    <label>Path Width (blocks): <input type="number" id="pathWidth" value="3" style="width: 60px;"></label>
+                    <label>Floor Height (blocks): <input type="number" id="floorHeight" value="5" style="width: 60px;"></label>
+                    <label>Number of Floors: <input type="number" id="floors" value="3" style="width: 60px;"></label>
+                    <label>Difficulty (1-10): <input type="number" id="difficulty" value="5" min="1" max="10" style="width: 60px;"></label>
+                    <label>Start From: 
+                        <select id="startDirection" style="width: 100%;">
+                            <option value="bottom">Bottom (Boss at Top)</option>
+                            <option value="top">Top (Boss at Bottom)</option>
+                        </select>
+                    </label>
+                    <label>Seed (blank for random): <input type="text" id="seed" placeholder="12345ABC" style="width: 100%;"></label>
+                    <button onclick="generateMaze()" class="btn-primary">Generate Maze</button>
+                </div>
+            </details>
+
+            <details class="sidebar-section" id="editToolsSection" open>
+                <summary>🖌️ Tools & Legend</summary>
+                <div style="margin-bottom: 10px;">
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: bold; background: #333; padding: 8px; border-radius: 4px;">
+                        <input type="checkbox" id="editModeToggle" onchange="toggleEditMode()" style="width: 18px; height: 18px;">
+                        Enable Edit Mode
+                    </label>
+                </div>
+                <div id="brushContainer" style="opacity: 0.5; pointer-events: none;">
+                    <label style="font-size: 13px; color:#bbb;">Click & Drag on grid to paint</label>
+                    <select id="brushSelect" style="width: 100%; padding: 8px; margin-bottom: 10px; cursor: pointer; font-size: 16px;">
+                        <option value="0">⬛ Wall</option>
+                        <option value="1">⬜ Path</option>
+                        <option value="START">🏁 Start</option>
+                        <option value="STAIRS_UP">🔼 Stairs Up</option>
+                        <option value="STAIRS_DOWN">🔽 Stairs Down</option>
+                        <option value="MONSTER">🧟 Monster</option>
+                        <option value="MINI_BOSS">👹 Mini Boss</option>
+                        <option value="BOSS">💀 Boss</option>
+                        <option value="TRAP">⚠️ Trap</option>
+                        <option value="SECRET">🎁 Secret Room</option>
+                    </select>
+                </div>
+                <div style="font-size: 13px; line-height: 1.8;">
+                    <div style="color: #FFEB3B;">🟨 Guide Path (Toggleable)</div>
+                </div>
+                <button id="toggleGuideBtn" onclick="toggleGuide()" disabled style="width: 100%; margin-top: 10px;">Toggle Guide Path</button>
+            </details>
+
+            <details class="sidebar-section" open>
+                <summary>💾 Data Management</summary>
+                <button id="exportJsonBtn" onclick="exportJSON()" disabled class="btn-export">Export JSON for Plugin</button>
+                <input type="file" id="importJsonInput" accept=".json" style="display: none;" onchange="importJSON(event)">
+                <button id="importJsonBtn" onclick="document.getElementById('importJsonInput').click()" class="btn-import">Import JSON</button>
+            </details>
+            
+            <div id="mcSizeInfo" style="margin-top: 15px; color: #4CAF50; font-size: 12px; font-weight: bold;"></div>
+        </div>
+
+        <!-- พื้นที่ทำงานตรงกลาง -->
+        <div class="main-content">
+            <div class="top-bar">
+                <div id="floorNavigation" style="display: none; align-items: center; gap: 15px;">
+                    <button onclick="prevFloor()">◀ Prev Floor</button>
+                    <span id="currentFloorLabel" style="font-weight: bold; font-size: 16px;">Floor 1 / 3</span>
+                    <button onclick="nextFloor()">Next Floor ▶</button>
+                </div>
+                <div class="zoom-controls">
+                    <button onclick="window.zoomMaze(1)">➕ Zoom In</button>
+                    <button onclick="window.zoomMaze(0)">Reset</button>
+                    <button onclick="window.zoomMaze(-1)">➖ Zoom Out</button>
+                </div>
+            </div>
+            
+            <!-- พื้นที่รองรับการ Zoom -->
+            <div id="mazeViewArea" class="maze-view-area">
+                <div id="mazeContainer" class="maze-container-zoomable"></div>
+            </div>
+
+            <!-- ลายน้ำ (Watermark) -->
+            <div class="watermark">
+                <p style="margin: 0 0 5px 0; font-size: 24px;">Created by <strong>JuiMuiFun</strong></p>
+                <a href="https://modrinth.com/plugin/dungeons-tower" target="_blank" style="font-size: 18px; color: #4CAF50; font-weight: bold; text-decoration: none; pointer-events: auto; cursor: pointer;">Dungeons Tower Plugin</a>
+            </div>
+        </div>
+    </div>
+    <script type="module" src="app.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,32 @@
+# Dependencies (กรณีที่ใช้งาน npm ในอนาคต)
+node_modules/
+
+# Environment variables (ไฟล์ตั้งค่าความปลอดภัย/รหัสผ่าน)
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+
+# Logs (ไฟล์เก็บประวัติ Error)
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Editor directories and files (ไฟล์ตั้งค่าของโปรแกรมเขียนโค้ด เช่น VSCode)
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS generated files (ไฟล์ซ่อนที่ระบบปฏิบัติการสร้างขึ้น)
+.DS_Store
+.DS_Store?
+._*
+ehthumbs.db
+Thumbs.db
