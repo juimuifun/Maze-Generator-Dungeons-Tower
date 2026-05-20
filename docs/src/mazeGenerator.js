@@ -188,12 +188,10 @@ function generateMultiFloorMaze(config) {
         startPoint = { x: endPoint.x, y: endPoint.y };
     }
 
-    // หากเลือกให้เริ่มจากด้านบนสุด เราจะกลับด้าน Array เพื่อให้ห้องบอสกลายเป็นชั้นล่างสุด (Floor 1)
-    // และสลับบันไดขึ้น-ลงให้สอดคล้องกัน (เช่น ชั้นบนสุดต้องมีแต่บันไดลง)
+    // หากเลือกให้เริ่มจากด้านบนสุด เราจะไม่กลับด้าน Array เพื่อให้ Floor 1 ยังคงเป็นจุดเริ่มต้น (Start)
+    // แต่เราจะสลับบันไดขึ้น-ลงให้สอดคล้องกัน (Floor 1 จะมีบันไดลงไปเรื่อยๆ จนถึงห้องบอส)
     if (startDirection === 'top') {
-        allFloors.reverse();
-        allFloors.forEach((floor, index) => {
-            floor.floorNumber = index + 1;
+        allFloors.forEach((floor) => {
             for (let y = 0; y < floor.grid.length; y++) {
                 for (let x = 0; x < floor.grid[y].length; x++) {
                     if (floor.grid[y][x] === 'STAIRS_UP') {

@@ -389,8 +389,12 @@ window.exportJSON = function() {
     };
 
     currentMazeData.forEach((floor, floorIndex) => {
-        // Calculate starting Y for the floor
-        const startY = foundationThickness + (floorIndex * (roomHeight + ceilingThickness));
+        // Calculate starting Y for the floor (สลับแกน Y ถ้าเริ่มจาก Top)
+        let yIndex = floorIndex;
+        if (lastConfig.startDirection === 'top') {
+            yIndex = currentMazeData.length - 1 - floorIndex;
+        }
+        const startY = foundationThickness + (yIndex * (roomHeight + ceilingThickness));
         
         const floorData = {
             floorNumber: floor.floorNumber,
