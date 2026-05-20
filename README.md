@@ -15,6 +15,13 @@ This plugin is currently in Alpha. It is fully functional and safe to use, but I
 
 ---
 
+## ⚡ Breakthrough Performance (New in 0.0.4-Beta!)
+We've completely revolutionized the generation engine! By optimizing the biome mapping to match Minecraft's native 4x4x4 3D grid, the processing overhead has been slashed from over 90 million iterations down to just 1.3 million.
+
+**The Benchmark:**
+Generating a colossal **765 x 765 x 155** block maze (over **90.7 million blocks** & **~25,000 rooms**) used to take up to 14 minutes.
+Now? It generates in an astonishing **10 seconds**! *(Tested on AMD Ryzen 5 7600)*. Zero lag, instant massive dungeons.
+
 ## ✨ Key Features
 
 - **Smart 3-Step Safe Generation**: 
