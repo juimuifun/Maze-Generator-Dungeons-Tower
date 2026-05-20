@@ -1,4 +1,4 @@
-# 🏰 DungeonsTower [Early Access / Alpha]
+# 🏰 DungeonsTower [Early Access / Beta]
 
 **Welcome to the Early Access of DungeonsTower!** A powerful Minecraft plugin (1.21+) for automatically generating multi-floor tower dungeons and mazes from JSON data using WorldEdit/FAWE schematics.
 
@@ -7,7 +7,7 @@ Perfect for RPG, Survival, and Dungeon-based servers. Build massive structures a
 ---
 
 ### ⚠️ Early Access Notice
-This plugin is currently in Alpha. It is fully functional and safe to use, but I am releasing it to gather feedback and test the core generation mechanics.
+This plugin is currently in Beta. It is fully functional and safe to use, but I am releasing it to gather feedback and test the core generation mechanics.
 
 **Why Early Access?** As a solo hobbyist developer with busy personal milestones and a tight schedule ahead, I want to ensure the foundation is rock solid before expanding the system.
 
@@ -32,7 +32,7 @@ Now? It generates in an astonishing **10 seconds**! *(Tested on AMD Ryzen 5 7600
 - **Multi-Floor & Multi-Tower**: Handles complex vertical structures. Automatically splits dungeons into multiple adjacent towers if the world height limit is exceeded.
 - **Large Custom Rooms**: Supports standard 1x1 paths and massive multi-block custom rooms (e.g., `BOSS_3x3`, `MINI_BOSS_2x2`).
 - **Builder Tools**: In-game commands to help map makers spawn building platforms and design rooms perfectly to scale.
-- **🌟 Exclusive Web Generator (Alpha)**: Skip the JSON coding! Use our intuitive visual web-based grid editor to design your maze and export it directly to the plugin.
+- **🌟 Exclusive Web Generator (Beta)**: Skip the JSON coding! Use our intuitive visual web-based grid editor to design your maze and export it directly to the plugin.
 
 ## 📦 Dependencies
 
