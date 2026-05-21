@@ -6,6 +6,11 @@ let isGuideVisible = false;
 let currentFloorIndex = 0;
 let lastConfig = null;
 
+// Global Settings & Inspector State
+window.customItems = [];
+let inspectedCell = null;
+let currentMarkers = [];
+
 // ตัวแปรสำหรับเช็คการลากเมาส์ระบายสี
 let isDrawing = false;
 window.addEventListener('mousedown', () => isDrawing = true);
@@ -43,6 +48,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const viewArea = document.getElementById('mazeViewArea');
     const container = document.getElementById('mazeContainer');
     if (!viewArea || !container) return;
+    
+    window.renderCustomItemsUI(); // Init empty list visually
 
     viewArea.addEventListener('wheel', (e) => {
         e.preventDefault(); // ป้องกันเบราว์เซอร์เลื่อนหน้าจอ
@@ -122,7 +129,8 @@ window.generateMaze = function() {
         floors: parseInt(document.getElementById('floors').value),
         pathWidth: parseInt(document.getElementById('pathWidth').value),
         floorHeight: parseInt(document.getElementById('floorHeight').value),
-        difficulty: parseInt(document.getElementById('difficulty').value),
+        mazeComplexity: parseInt(document.getElementById('mazeComplexity').value),
+        encounterDifficulty: parseInt(document.getElementById('encounterDifficulty').value),
         startDirection: document.getElementById('startDirection').value,
         seed: seedInput
     };
@@ -134,6 +142,9 @@ window.generateMaze = function() {
         document.getElementById('toggleGuideBtn').disabled = false;
         document.getElementById('exportJsonBtn').disabled = false;
         document.getElementById('floorNavigation').style.display = 'flex';
+        
+        // Initialize empty markers container for new mazes
+        currentMazeData.forEach(floor => floor.markers = {});
         
         // Calculate and display Minecraft area requirements
         const actualWidth = currentMazeData[0].grid[0].length;
@@ -205,6 +216,17 @@ function renderMaze() {
                 if (isDrawing && e.buttons === 1) updateCell(x, y); 
             };
 
+            // Room Inspector - Triggered by Double-Click or Right-Click
+            cellDiv.ondblclick = (e) => {
+                e.preventDefault();
+                window.openInspector(currentFloorIndex, x, y, cellVal);
+            };
+            cellDiv.oncontextmenu = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                window.openInspector(currentFloorIndex, x, y, cellVal);
+            };
+
             // Add Class and Symbol according to data
             if (cellVal === 0) cellDiv.classList.add('wall');
             else if (cellVal === 'START') cellDiv.classList.add('start');
@@ -215,6 +237,11 @@ function renderMaze() {
             else if (cellVal === 'BOSS') cellDiv.classList.add('boss');
             else if (cellVal === 'TRAP') cellDiv.classList.add('trap');
             else if (cellVal === 'SECRET') cellDiv.classList.add('secret');
+
+            // Draw visual indicator if the room has custom markers
+            if (floor.markers && floor.markers[`${x},${y}`] && floor.markers[`${x},${y}`].length > 0) {
+                cellDiv.classList.add('has-marker');
+            }
 
             cellDiv.innerText = getCellIcon(cellVal);
             gridDiv.appendChild(cellDiv);
@@ -255,6 +282,11 @@ window.updateCell = function(x, y) {
         else if (val === 'TRAP') cellDiv.classList.add('trap');
         else if (val === 'SECRET') cellDiv.classList.add('secret');
         
+        // Add marker dot back if it has markers configured
+        if (floor.markers && floor.markers[`${x},${y}`] && floor.markers[`${x},${y}`].length > 0) {
+            cellDiv.classList.add('has-marker');
+        }
+        
         cellDiv.innerText = getCellIcon(val);
         
         // ถ้ากดแก้ไขช่องใดๆ ให้ดึง class guide-path ออกเพื่อป้องกันสีทับซ้อน
@@ -290,6 +322,120 @@ function applyGuideToCurrentFloor() {
         }
     });
 }
+
+// --- Room Inspector & Dynamic Arrays System ---
+window.openInspector = function(fIndex, x, y, cellVal) {
+    if (cellVal === 0) return; // Don't inspect walls
+    inspectedCell = { fIndex, x, y, cellVal };
+    const floor = currentMazeData[fIndex];
+    if (!floor.markers) floor.markers = {};
+    
+    // Clone the markers array for safe editing
+    currentMarkers = JSON.parse(JSON.stringify(floor.markers[`${x},${y}`] || []));
+    
+    document.getElementById('inspectorCoords').innerText = `X: ${x}, Y: ${y} (Floor ${fIndex + 1})`;
+    document.getElementById('inspectorType').innerText = getCellIcon(cellVal) + " " + cellVal;
+    
+    window.renderMarkersUI();
+    document.getElementById('inspectorModal').style.display = 'flex';
+};
+
+window.closeInspector = function() {
+    document.getElementById('inspectorModal').style.display = 'none';
+    inspectedCell = null;
+};
+
+window.saveInspector = function() {
+    if (!inspectedCell) return;
+    const floor = currentMazeData[inspectedCell.fIndex];
+    const cellKey = `${inspectedCell.x},${inspectedCell.y}`;
+    const cellDiv = document.getElementById(`cell-${floor.floorNumber}-${inspectedCell.x}-${inspectedCell.y}`);
+    
+    if (currentMarkers.length > 0) {
+        floor.markers[cellKey] = JSON.parse(JSON.stringify(currentMarkers));
+        if (cellDiv) cellDiv.classList.add('has-marker');
+    } else {
+        delete floor.markers[cellKey];
+        if (cellDiv) cellDiv.classList.remove('has-marker');
+    }
+    window.closeInspector();
+};
+
+window.renderMarkersUI = function() {
+    const container = document.getElementById('markersContainer');
+    container.innerHTML = '';
+    if (currentMarkers.length === 0) {
+        container.innerHTML = '<p style="font-size:12px; color:#888;">No markers set for this room.</p>';
+        return;
+    }
+
+    currentMarkers.forEach((marker, index) => {
+        const div = document.createElement('div');
+        div.className = 'dynamic-list-item';
+        
+        let currentVal = '';
+        let placeholder = '';
+        if (marker.type === 'DOOR') { currentVal = marker.lock_id || ''; placeholder = 'lock_id (e.g. boss_key)'; }
+        else if (marker.type === 'SPAWNER') { currentVal = marker.mob_id || ''; placeholder = 'mob_id'; }
+        else if (marker.type === 'CHEST') { currentVal = marker.loot_table || ''; placeholder = 'loot_table'; }
+        else if (marker.type === 'TRAP') { currentVal = marker.trap_id || ''; placeholder = 'trap_id'; }
+        
+        div.innerHTML = `
+            <select style="width:110px" onchange="window.updateMarkerType(${index}, this.value)">
+                <option value="DOOR" ${marker.type === 'DOOR' ? 'selected' : ''}>🚪 DOOR</option>
+                <option value="SPAWNER" ${marker.type === 'SPAWNER' ? 'selected' : ''}>🧟 SPAWNER</option>
+                <option value="CHEST" ${marker.type === 'CHEST' ? 'selected' : ''}>📦 CHEST</option>
+                <option value="TRAP" ${marker.type === 'TRAP' ? 'selected' : ''}>⚠️ TRAP</option>
+            </select>
+            <input type="text" placeholder="${placeholder}" value="${currentVal}" onchange="window.updateMarkerValue(${index}, this.value)">
+            <button class="btn-danger" style="padding:4px 10px;" onclick="window.removeMarker(${index})">X</button>
+        `;
+        container.appendChild(div);
+    });
+};
+
+window.addMarkerUI = function() { currentMarkers.push({ type: 'DOOR', lock_id: '' }); window.renderMarkersUI(); };
+window.removeMarker = function(index) { currentMarkers.splice(index, 1); window.renderMarkersUI(); };
+window.updateMarkerType = function(index, newType) {
+    currentMarkers[index] = { type: newType }; // Reset payload
+    if (newType === 'DOOR') currentMarkers[index].lock_id = '';
+    else if (newType === 'SPAWNER') currentMarkers[index].mob_id = '';
+    else if (newType === 'CHEST') currentMarkers[index].loot_table = '';
+    else if (newType === 'TRAP') currentMarkers[index].trap_id = '';
+    window.renderMarkersUI();
+};
+window.updateMarkerValue = function(index, value) {
+    const type = currentMarkers[index].type;
+    if (type === 'DOOR') currentMarkers[index].lock_id = value;
+    else if (type === 'SPAWNER') currentMarkers[index].mob_id = value;
+    else if (type === 'CHEST') currentMarkers[index].loot_table = value;
+    else if (type === 'TRAP') currentMarkers[index].trap_id = value;
+};
+
+// Custom Items Global List logic
+window.renderCustomItemsUI = function() {
+    const container = document.getElementById('customItemsContainer');
+    container.innerHTML = '';
+    if (window.customItems.length === 0) {
+        container.innerHTML = '<p style="font-size:12px; color:#888;">No items defined.</p>';
+        return;
+    }
+    window.customItems.forEach((item, index) => {
+        const div = document.createElement('div');
+        div.className = 'dynamic-list-item';
+        div.style.flexWrap = 'wrap';
+        div.innerHTML = `
+            <input type="text" placeholder="ID (e.g. key_1)" value="${item.id}" onchange="window.updateCustomItem(${index}, 'id', this.value)" style="flex: 1 1 40%;">
+            <input type="text" placeholder="Type" value="${item.type}" onchange="window.updateCustomItem(${index}, 'type', this.value)" style="flex: 1 1 40%;">
+            <input type="text" placeholder="Display Name" value="${item.name}" onchange="window.updateCustomItem(${index}, 'name', this.value)" style="flex: 1 1 80%;">
+            <button class="btn-danger" style="padding:4px 8px; flex: 0 0 10%;" onclick="window.removeCustomItem(${index})">X</button>
+        `;
+        container.appendChild(div);
+    });
+};
+window.addCustomItemUI = function() { window.customItems.push({ id: '', type: 'KEY', name: '' }); window.renderCustomItemsUI(); };
+window.removeCustomItem = function(index) { window.customItems.splice(index, 1); window.renderCustomItemsUI(); };
+window.updateCustomItem = function(index, field, value) { window.customItems[index][field] = value; };
 
 // --- JSON Export System ---
 function getCellLabel(x, y) {
@@ -375,6 +521,13 @@ window.exportJSON = function() {
     const exportData = {
         metadata: {
             config: lastConfig,
+            rules: {
+                cooldown_hours: parseInt(document.getElementById('ruleCooldown').value) || 24,
+                min_players: parseInt(document.getElementById('ruleMinP').value) || 1,
+                max_players: parseInt(document.getElementById('ruleMaxP').value) || 4,
+                time_limit_minutes: parseInt(document.getElementById('ruleTime').value) || 60
+            },
+            custom_items: window.customItems,
             minecraftInfo: {
                 totalWidth: actualWidth * lastConfig.pathWidth,
                 totalLength: actualLength * lastConfig.pathWidth,
@@ -427,7 +580,8 @@ window.exportJSON = function() {
                             length: lastConfig.pathWidth
                         },
                         type: cellVal === 1 ? 'PATH' : cellVal, // PATH, MONSTER, BOSS, etc.
-                        shape: getPathShape(floor.grid, x, y, actualWidth, actualLength)
+                        shape: getPathShape(floor.grid, x, y, actualWidth, actualLength),
+                        markers: floor.markers ? (floor.markers[`${x},${y}`] || []) : []
                     });
                 }
             }
@@ -485,6 +639,7 @@ function loadImportedData(data) {
 
     currentMazeData = data.floors.map(floor => {
         let grid = Array(actualLength).fill().map(() => Array(actualWidth).fill(0));
+        let floorMarkersMap = {};
         
         let startPos = null;
         let endPos = null;
@@ -497,6 +652,10 @@ function loadImportedData(data) {
                     if (y >= 0 && y < actualLength && x >= 0 && x < actualWidth) {
                         grid[y][x] = cell.type === 'PATH' ? 1 : cell.type;
                         
+                        if (cell.markers && cell.markers.length > 0) {
+                            floorMarkersMap[`${x},${y}`] = cell.markers;
+                        }
+
                         // ค้นหาพิกัดเริ่มต้นและสิ้นสุด เพื่อสร้างเส้น Guide ใหม่สำหรับไฟล์ JSON รุ่นเก่า
                         if (cell.type === 'START') {
                             startPos = { x, y };
@@ -519,7 +678,8 @@ function loadImportedData(data) {
         return {
             floorNumber: floor.floorNumber,
             grid: grid,
-            guidePath: gPath || [] 
+            guidePath: gPath || [],
+            markers: floorMarkersMap
         };
     });
 
@@ -537,12 +697,35 @@ function loadImportedData(data) {
         document.getElementById('floors').value = lastConfig.floors || '';
         document.getElementById('pathWidth').value = lastConfig.pathWidth || '';
         document.getElementById('floorHeight').value = lastConfig.floorHeight || '';
-        document.getElementById('difficulty').value = lastConfig.difficulty || '';
+        
+        if (lastConfig.mazeComplexity) {
+            document.getElementById('mazeComplexity').value = lastConfig.mazeComplexity;
+            document.getElementById('mazeCompVal').innerText = lastConfig.mazeComplexity;
+        }
+        if (lastConfig.encounterDifficulty) {
+            document.getElementById('encounterDifficulty').value = lastConfig.encounterDifficulty;
+            document.getElementById('encDiffVal').innerText = lastConfig.encounterDifficulty;
+        } else if (lastConfig.difficulty) { // Fallback for old JSON format
+            document.getElementById('encounterDifficulty').value = lastConfig.difficulty;
+            document.getElementById('encDiffVal').innerText = lastConfig.difficulty;
+        }
+        
         if (lastConfig.startDirection) {
             document.getElementById('startDirection').value = lastConfig.startDirection;
         }
         document.getElementById('seed').value = lastConfig.seed || '';
     }
+    
+    // Update UI rules & custom items
+    if (data.metadata.rules) {
+        document.getElementById('ruleCooldown').value = data.metadata.rules.cooldown_hours || 24;
+        document.getElementById('ruleMinP').value = data.metadata.rules.min_players || 1;
+        document.getElementById('ruleMaxP').value = data.metadata.rules.max_players || 4;
+        document.getElementById('ruleTime').value = data.metadata.rules.time_limit_minutes || 60;
+    }
+    
+    window.customItems = data.metadata.custom_items || [];
+    window.renderCustomItemsUI();
 
     const mcTotalHeight = data.metadata.minecraftInfo.totalHeight;
     const totalVolumeImported = (data.metadata.minecraftInfo.totalWidth * data.metadata.minecraftInfo.totalLength * mcTotalHeight).toLocaleString();

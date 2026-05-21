@@ -117,4 +117,15 @@ function findFurthestDeadEnd(grid, start) {
     return furthest;
 }
 
-export { findShortestPath, findFurthestPoint, findFurthestDeadEnd };
+function findForcedPath(grid, waypoints) {
+    let fullPath = [];
+    for (let i = 0; i < waypoints.length - 1; i++) {
+        let segment = findShortestPath(grid, waypoints[i], waypoints[i+1]);
+        if (segment.length === 0) continue; // Skip if unreachable
+        if (i > 0) segment.shift(); // Remove duplicate overlap coordinate at connection points
+        fullPath = fullPath.concat(segment);
+    }
+    return fullPath;
+}
+
+export { findShortestPath, findFurthestPoint, findFurthestDeadEnd, findForcedPath };

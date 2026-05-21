@@ -23,7 +23,12 @@
                     <label>Path Width (blocks): <input type="number" id="pathWidth" value="3" style="width: 60px;"></label>
                     <label>Floor Height (blocks): <input type="number" id="floorHeight" value="5" style="width: 60px;"></label>
                     <label>Number of Floors: <input type="number" id="floors" value="3" style="width: 60px;"></label>
-                    <label>Difficulty (1-10): <input type="number" id="difficulty" value="5" min="1" max="10" style="width: 60px;"></label>
+                    <label>Maze Complexity (1-10): <span id="mazeCompVal">5</span>
+                        <input type="range" id="mazeComplexity" value="5" min="1" max="10" style="width: 100%;" oninput="document.getElementById('mazeCompVal').innerText=this.value">
+                    </label>
+                    <label>Encounter Difficulty (1-10): <span id="encDiffVal">5</span>
+                        <input type="range" id="encounterDifficulty" value="5" min="1" max="10" style="width: 100%;" oninput="document.getElementById('encDiffVal').innerText=this.value">
+                    </label>
                     <label>Start From: 
                         <select id="startDirection" style="width: 100%;">
                             <option value="bottom">Bottom (Boss at Top)</option>
@@ -32,6 +37,20 @@
                     </label>
                     <label>Seed (blank for random): <input type="text" id="seed" placeholder="12345ABC" style="width: 100%;"></label>
                     <button onclick="generateMaze()" class="btn-primary">Generate Maze</button>
+                </div>
+            </details>
+
+            <details class="sidebar-section">
+                <summary>🌍 Global Settings</summary>
+                <div class="settings-panel">
+                    <label>Cooldown (Hours): <input type="number" id="ruleCooldown" value="24" style="width: 100%;"></label>
+                    <label>Min Players: <input type="number" id="ruleMinP" value="1" style="width: 100%;"></label>
+                    <label>Max Players: <input type="number" id="ruleMaxP" value="4" style="width: 100%;"></label>
+                    <label>Time Limit (Min): <input type="number" id="ruleTime" value="60" style="width: 100%;"></label>
+                    <hr style="border: 1px solid #444; margin: 10px 0;">
+                    <label><b>Custom Items</b></label>
+                    <div id="customItemsContainer"></div>
+                    <button onclick="window.addCustomItemUI()" class="btn-primary" style="font-size:12px; margin-top:5px;">+ Add Custom Item</button>
                 </div>
             </details>
 
@@ -101,6 +120,28 @@
             </div>
         </div>
     </div>
+
+    <!-- Room Inspector Modal -->
+    <div id="inspectorModal" class="modal-overlay" style="display:none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="inspectorTitle">Room Inspector</h3>
+                <button onclick="window.closeInspector()" class="btn-danger">X</button>
+            </div>
+            <div class="modal-body">
+                <p><strong>Coordinates:</strong> <span id="inspectorCoords"></span></p>
+                <p><strong>Type:</strong> <span id="inspectorType"></span></p>
+                <hr style="border: 1px solid #444;">
+                <h4>Markers (Spawners, Doors, etc.)</h4>
+                <div id="markersContainer"></div>
+                <button onclick="window.addMarkerUI()" class="btn-primary" style="font-size:12px; margin-top:10px;">+ Add Marker</button>
+            </div>
+            <div class="modal-footer">
+                <button onclick="window.saveInspector()" class="btn-primary">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
     <script type="module" src="app.js"></script>
 </body>
 
