@@ -721,6 +721,11 @@ function initMainGenerateButton() {
     initExportButtons();
 }
 
+function getMazeData(jsonObj) {
+    if (!jsonObj) return null;
+    return jsonObj.maze ? jsonObj.maze : jsonObj;
+}
+
 function initExportButtons() {
     const handleExport = () => {
         if (!window.currentMazeJSON) {
@@ -728,10 +733,12 @@ function initExportButtons() {
             return;
         }
 
+        const mazeData = getMazeData(window.currentMazeJSON);
+        const seed = mazeData?.settings?.seed || 'Dungeons2026';
         const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(window.currentMazeJSON, null, 2));
         const downloadAnchor = document.createElement('a');
         downloadAnchor.setAttribute("href", dataStr);
-        downloadAnchor.setAttribute("download", `dungeon_maze_${window.currentMazeJSON.settings.seed}.json`);
+        downloadAnchor.setAttribute("download", `dungeon_maze_${seed}.json`);
         document.body.appendChild(downloadAnchor);
         downloadAnchor.click();
         downloadAnchor.remove();
@@ -785,8 +792,9 @@ function triggerMazeGeneration() {
     window.activeFloorIndex = 0;
 
     // Sync auto-generated door keys back into customQuestItems UI list
-    if (window.currentMazeJSON && window.currentMazeJSON.unassignedEntities) {
-        window.currentMazeJSON.unassignedEntities.forEach(k => {
+    const mazeData = getMazeData(window.currentMazeJSON);
+    if (mazeData && mazeData.unassignedEntities) {
+        mazeData.unassignedEntities.forEach(k => {
             if (!window.customQuestItems.some(item => item.keyId === k.keyId)) {
                 window.customQuestItems.push({
                     id: k.id,
@@ -811,16 +819,18 @@ function triggerMazeGeneration() {
 
 function renderCurrentFloor() {
     const container = document.getElementById('gridContainer');
-    if (!container || !window.currentMazeJSON) return;
+    const mazeData = getMazeData(window.currentMazeJSON);
+    if (!container || !mazeData) return;
 
-    const floorData = window.currentMazeJSON.floors[window.activeFloorIndex];
+    const floorData = mazeData.floors[window.activeFloorIndex];
     renderFloorCanvas(container, floorData, window.showGuidePath);
 }
 
 function updateFloorBadge() {
     const badge = document.getElementById('floorBadge');
-    if (!badge || !window.currentMazeJSON) return;
-    const total = window.currentMazeJSON.floors.length;
+    const mazeData = getMazeData(window.currentMazeJSON);
+    if (!badge || !mazeData) return;
+    const total = mazeData.floors.length;
     badge.textContent = `Floor ${window.activeFloorIndex + 1} / ${total}`;
 }
 
@@ -831,7 +841,8 @@ function initFloorNavigation() {
 
     if (btnPrev) {
         btnPrev.addEventListener('click', () => {
-            if (!window.currentMazeJSON) return;
+            const mazeData = getMazeData(window.currentMazeJSON);
+            if (!mazeData) return;
             if (window.activeFloorIndex > 0) {
                 window.activeFloorIndex--;
                 renderCurrentFloor();
@@ -842,8 +853,9 @@ function initFloorNavigation() {
 
     if (btnNext) {
         btnNext.addEventListener('click', () => {
-            if (!window.currentMazeJSON) return;
-            if (window.activeFloorIndex < window.currentMazeJSON.floors.length - 1) {
+            const mazeData = getMazeData(window.currentMazeJSON);
+            if (!mazeData) return;
+            if (window.activeFloorIndex < mazeData.floors.length - 1) {
                 window.activeFloorIndex++;
                 renderCurrentFloor();
                 updateFloorBadge();
@@ -1029,8 +1041,9 @@ function initImportJSON() {
         reader.onload = (e) => {
             try {
                 const data = JSON.parse(e.target.result);
+                const mazeData = data.maze ? data.maze : data;
 
-                if (!data.floors || !Array.isArray(data.floors)) {
+                if (!mazeData.floors || !Array.isArray(mazeData.floors)) {
                     showStatus('Invalid maze JSON format: Missing floors data.', false);
                     return;
                 }
@@ -1040,38 +1053,38 @@ function initImportJSON() {
                     if (el && val !== undefined) el.value = val;
                 };
 
-                if (data.settings) {
-                    if (data.settings.dimensions) {
-                        setVal('cfgWidth', data.settings.dimensions.columns);
-                        setVal('cfgLength', data.settings.dimensions.rows);
-                        setVal('cfgFloors', data.settings.dimensions.floors);
-                        setVal('cfgPathWidth', data.settings.dimensions.pathWidth);
-                        setVal('cfgFloorHeight', data.settings.dimensions.floorHeight);
+                if (mazeData.settings) {
+                    if (mazeData.settings.dimensions) {
+                        setVal('cfgWidth', mazeData.settings.dimensions.columns);
+                        setVal('cfgLength', mazeData.settings.dimensions.rows);
+                        setVal('cfgFloors', mazeData.settings.dimensions.floors);
+                        setVal('cfgPathWidth', mazeData.settings.dimensions.pathWidth);
+                        setVal('cfgFloorHeight', mazeData.settings.dimensions.floorHeight);
                     }
-                    if (data.settings.algorithm) {
-                        setVal('cfgAlgorithm', (data.settings.algorithm.type || 'dfs').toLowerCase());
-                        setVal('cfgMazeComplexity', data.settings.algorithm.complexity);
+                    if (mazeData.settings.algorithm) {
+                        setVal('cfgAlgorithm', (mazeData.settings.algorithm.type || 'dfs').toLowerCase());
+                        setVal('cfgMazeComplexity', mazeData.settings.algorithm.complexity);
                     }
-                    if (data.settings.difficulty) {
-                        setVal('cfgMonsterDensity', data.settings.difficulty.monsterDensity);
-                        setVal('cfgMiniBossFreq', data.settings.difficulty.minibossFrequency);
-                        setVal('cfgTrapDensity', data.settings.difficulty.trapDensity);
-                        setVal('cfgSecretFreq', data.settings.difficulty.secretChestFrequency);
+                    if (mazeData.settings.difficulty) {
+                        setVal('cfgMonsterDensity', mazeData.settings.difficulty.monsterDensity);
+                        setVal('cfgMiniBossFreq', mazeData.settings.difficulty.minibossFrequency);
+                        setVal('cfgTrapDensity', mazeData.settings.difficulty.trapDensity);
+                        setVal('cfgSecretFreq', mazeData.settings.difficulty.secretChestFrequency);
                     }
-                    if (data.settings.seed) setVal('cfgSeed', data.settings.seed);
-                    if (data.settings.startDirection) {
-                        const dir = data.settings.startDirection.startsWith('top') ? 'top' : 'bottom';
+                    if (mazeData.settings.seed) setVal('cfgSeed', mazeData.settings.seed);
+                    if (mazeData.settings.startDirection) {
+                        const dir = mazeData.settings.startDirection.startsWith('top') ? 'top' : 'bottom';
                         setVal('cfgStartDirection', dir);
                     }
                 }
 
-                if (data.specialRooms && Array.isArray(data.specialRooms)) {
-                    window.customSpecialRooms = [...data.specialRooms];
+                if (mazeData.specialRooms && Array.isArray(mazeData.specialRooms)) {
+                    window.customSpecialRooms = [...mazeData.specialRooms];
                     renderSpecialRooms();
                 }
 
-                if (data.unassignedEntities && Array.isArray(data.unassignedEntities)) {
-                    window.customQuestItems = [...data.unassignedEntities];
+                if (mazeData.unassignedEntities && Array.isArray(mazeData.unassignedEntities)) {
+                    window.customQuestItems = [...mazeData.unassignedEntities];
                     renderQuestItems();
                 }
 
@@ -1083,7 +1096,7 @@ function initImportJSON() {
                 renderCurrentFloor();
                 updateFloorBadge();
 
-                showStatus(`Successfully imported maze JSON! (${data.floors.length} floors loaded)`, true);
+                showStatus(`Successfully imported maze JSON! (${mazeData.floors.length} floors loaded)`, true);
                 console.log('Imported Maze JSON successfully!', data);
             } catch (err) {
                 console.error('Error parsing JSON:', err);
