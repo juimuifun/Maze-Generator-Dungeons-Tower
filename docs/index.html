@@ -1,148 +1,472 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
-    <title>Minecraft Maze Simulator</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DungeonsTower Generator V2</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
-    <div class="app-layout">
-        <!-- Sidebar ด้านซ้าย -->
-        <div class="sidebar">
-            <h2>Maze Simulator</h2>
+    <div id="app" class="app-container">
+        
+        <!-- 1. Top Navbar (Fixed Top Header) -->
+        <header class="top-navbar">
+            <div class="nav-left">
+                <a href="https://github.com/juimuifun/Maze-Generator-Dungeons-Tower" target="_blank" class="brand brand-link" title="GitHub Repository">
+                    <i class="fa-solid fa-dungeon brand-icon"></i>
+                    <span class="brand-title">DungeonsTower</span>
+                    <span class="brand-tag">v2.0</span>
+                    <span class="brand-credit"><i class="fa-solid fa-heart"></i> by <strong>JuiMuiFun</strong></span>
+                </a>
+            </div>
             
-            <details class="sidebar-section" open>
-                <summary>⚙️ Scale & Settings</summary>
-                <div class="settings-panel">
-                    <label>Size (Width x Length):<br>
-                        <input type="number" id="width" value="15" style="width: 60px;"> x 
-                        <input type="number" id="length" value="15" style="width: 60px;">
-                    </label>
-                    <label>Path Width (blocks): <input type="number" id="pathWidth" value="3" style="width: 60px;"></label>
-                    <label>Floor Height (blocks): <input type="number" id="floorHeight" value="5" style="width: 60px;"></label>
-                    <label>Number of Floors: <input type="number" id="floors" value="3" style="width: 60px;"></label>
-                    <label>Maze Complexity (1-10): <span id="mazeCompVal">5</span>
-                        <input type="range" id="mazeComplexity" value="5" min="1" max="10" style="width: 100%;" oninput="document.getElementById('mazeCompVal').innerText=this.value">
-                    </label>
-                    <label>Encounter Difficulty (1-10): <span id="encDiffVal">5</span>
-                        <input type="range" id="encounterDifficulty" value="5" min="1" max="10" style="width: 100%;" oninput="document.getElementById('encDiffVal').innerText=this.value">
-                    </label>
-                    <label>Start From: 
-                        <select id="startDirection" style="width: 100%;">
-                            <option value="bottom">Bottom (Boss at Top)</option>
-                            <option value="top">Top (Boss at Bottom)</option>
-                        </select>
-                    </label>
-                    <label>Seed (blank for random): <input type="text" id="seed" placeholder="12345ABC" style="width: 100%;"></label>
-                    <button onclick="generateMaze()" class="btn-primary">Generate Maze</button>
-                </div>
-            </details>
+            <div class="nav-right">
+                <!-- Project Links (Modrinth & GitHub) -->
+                <a href="https://modrinth.com/plugin/dungeons-tower" target="_blank" rel="noopener" class="icon-btn-ghost" title="Modrinth Plugin Page">
+                    <i class="fa-solid fa-box-open"></i>
+                </a>
+                <a href="https://github.com/juimuifun/Maze-Generator-Dungeons-Tower" target="_blank" rel="noopener" class="icon-btn-ghost" title="GitHub Repository">
+                    <i class="fa-brands fa-github"></i>
+                </a>
 
-            <details class="sidebar-section">
-                <summary>🌍 Global Settings</summary>
-                <div class="settings-panel">
-                    <label>Cooldown (Hours): <input type="number" id="ruleCooldown" value="24" style="width: 100%;"></label>
-                    <label>Min Players: <input type="number" id="ruleMinP" value="1" style="width: 100%;"></label>
-                    <label>Max Players: <input type="number" id="ruleMaxP" value="4" style="width: 100%;"></label>
-                    <label>Time Limit (Min): <input type="number" id="ruleTime" value="60" style="width: 100%;"></label>
-                    <hr style="border: 1px solid #444; margin: 10px 0;">
-                    <label><b>Custom Items</b></label>
-                    <div id="customItemsContainer"></div>
-                    <button onclick="window.addCustomItemUI()" class="btn-primary" style="font-size:12px; margin-top:5px;">+ Add Custom Item</button>
-                </div>
-            </details>
-
-            <details class="sidebar-section" id="editToolsSection" open>
-                <summary>🖌️ Tools & Legend</summary>
-                <div style="margin-bottom: 10px;">
-                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: bold; background: #333; padding: 8px; border-radius: 4px;">
-                        <input type="checkbox" id="editModeToggle" onchange="toggleEditMode()" style="width: 18px; height: 18px;">
-                        Enable Edit Mode
-                    </label>
-                </div>
-                <div id="brushContainer" style="opacity: 0.5; pointer-events: none;">
-                    <label style="font-size: 13px; color:#bbb;">Click & Drag on grid to paint</label>
-                    <select id="brushSelect" style="width: 100%; padding: 8px; margin-bottom: 10px; cursor: pointer; font-size: 16px;">
-                        <option value="0">⬛ Wall</option>
-                        <option value="1">⬜ Path</option>
-                        <option value="START">🏁 Start</option>
-                        <option value="STAIRS_UP">🔼 Stairs Up</option>
-                        <option value="STAIRS_DOWN">🔽 Stairs Down</option>
-                        <option value="MONSTER">🧟 Monster</option>
-                        <option value="MINI_BOSS">👹 Mini Boss</option>
-                        <option value="BOSS">💀 Boss</option>
-                        <option value="TRAP">⚠️ Trap</option>
-                        <option value="SECRET">🎁 Secret Room</option>
+                <!-- Language Switcher Dropdown -->
+                <div class="lang-selector">
+                    <i class="fa-solid fa-globe lang-icon"></i>
+                    <select id="langSelect" class="lang-dropdown">
+                        <option value="en" selected>English (EN)</option>
+                        <option value="th">ไทย (TH)</option>
                     </select>
                 </div>
-                <div style="font-size: 13px; line-height: 1.8;">
-                    <div style="color: #FFEB3B;">🟨 Guide Path (Toggleable)</div>
-                </div>
-                <button id="toggleGuideBtn" onclick="toggleGuide()" disabled style="width: 100%; margin-top: 10px;">Toggle Guide Path</button>
-            </details>
 
-            <details class="sidebar-section" open>
-                <summary>💾 Data Management</summary>
-                <button id="exportJsonBtn" onclick="exportJSON()" disabled class="btn-export">Export JSON for Plugin</button>
-                <input type="file" id="importJsonInput" accept=".json" style="display: none;" onchange="importJSON(event)">
-                <button id="importJsonBtn" onclick="document.getElementById('importJsonInput').click()" class="btn-import">Import JSON</button>
-            </details>
+                <button id="btnMainActionTop" class="btn btn-primary">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i> <span data-i18n="btn_generate">Generate Maze</span>
+                </button>
+                <button id="btnExportTop" class="btn btn-outline">
+                    <i class="fa-solid fa-download"></i> <span data-i18n="btn_export_json">Export JSON</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- 2. Main Workspace Layout -->
+        <div class="workspace-body">
             
-            <div id="mcSizeInfo" style="margin-top: 15px; color: #4CAF50; font-size: 12px; font-weight: bold;"></div>
-        </div>
+            <!-- Tier 1: Mini Icon Navigation Sidebar (Slim Vertical Bar) -->
+            <nav id="iconSidebar" class="icon-sidebar">
+                <button class="nav-icon-item active" data-tab="tab-maze" title="Maze Settings">
+                    <i class="fa-solid fa-map"></i>
+                    <span data-i18n="tab_maze">Maze</span>
+                </button>
+                <button class="nav-icon-item" data-tab="tab-rooms" title="Special Rooms">
+                    <i class="fa-solid fa-crown"></i>
+                    <span data-i18n="tab_rooms">Rooms</span>
+                </button>
+                <button class="nav-icon-item" data-tab="tab-entities" title="Keys & Quest Items">
+                    <i class="fa-solid fa-key"></i>
+                    <span data-i18n="nav_keys">Keys</span>
+                </button>
+                <button class="nav-icon-item" data-tab="tab-tools" title="Map Tools">
+                    <i class="fa-solid fa-paint-brush"></i>
+                    <span data-i18n="tab_tools">Tools</span>
+                </button>
+                <button class="nav-icon-item" data-tab="tab-import" title="Import Map Data">
+                    <i class="fa-solid fa-file-import"></i>
+                    <span data-i18n="tab_import">Import</span>
+                </button>
+            </nav>
 
-        <!-- พื้นที่ทำงานตรงกลาง -->
-        <div class="main-content">
-            <div class="top-bar">
-                <div id="floorNavigation" style="display: none; align-items: center; gap: 15px;">
-                    <button onclick="prevFloor()">◀ Prev Floor</button>
-                    <span id="currentFloorLabel" style="font-weight: bold; font-size: 16px;">Floor 1 / 3</span>
-                    <button onclick="nextFloor()">Next Floor ▶</button>
+            <!-- Tier 2: Options Panel (Collapsible Side Drawer) -->
+            <aside id="optionsPanel" class="options-panel">
+                <!-- Floating Toggle Handle Button -->
+                <button id="toggleDrawerBtn" class="drawer-toggle-handle" title="Toggle Panel">
+                    <i class="fa-solid fa-chevron-left"></i>
+                </button>
+
+                <div class="panel-inner">
+                    <!-- Tab 1: Maze Settings -->
+                    <div id="tab-maze" class="tab-content active">
+                        <div class="panel-header">
+                            <h3><i class="fa-solid fa-sliders"></i> <span data-i18n="tab_maze">Maze Settings</span></h3>
+                        </div>
+
+                        <!-- Sub-tab Bar inside Maze Settings -->
+                        <div class="sub-tab-bar">
+                            <button class="sub-tab-btn active" data-sub="sub-dimensions" data-i18n="sub_dimensions">Dimensions</button>
+                            <button class="sub-tab-btn" data-sub="sub-algorithm" data-i18n="sub_algorithm">Algorithm</button>
+                            <button class="sub-tab-btn" data-sub="sub-seed" data-i18n="sub_seed">Seed</button>
+                        </div>
+
+                        <!-- Sub-tab content: Dimensions -->
+                        <div id="sub-dimensions" class="sub-content active">
+                            <div class="form-group">
+                                <label data-i18n="lbl_rows">Rows (Length)</label>
+                                <div class="step-input">
+                                    <button class="btn-step" onclick="changeVal('cfgLength', -2)">-</button>
+                                    <input type="number" id="cfgLength" value="25" min="5" max="100" step="2">
+                                    <button class="btn-step" onclick="changeVal('cfgLength', 2)">+</button>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label data-i18n="lbl_cols">Columns (Width)</label>
+                                <div class="step-input">
+                                    <button class="btn-step" onclick="changeVal('cfgWidth', -2)">-</button>
+                                    <input type="number" id="cfgWidth" value="25" min="5" max="100" step="2">
+                                    <button class="btn-step" onclick="changeVal('cfgWidth', 2)">+</button>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label data-i18n="lbl_floors">Floors Count</label>
+                                <div class="step-input">
+                                    <button class="btn-step" onclick="changeVal('cfgFloors', -1)">-</button>
+                                    <input type="number" id="cfgFloors" value="3" min="1" max="100" step="1">
+                                    <button class="btn-step" onclick="changeVal('cfgFloors', 1)">+</button>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label data-i18n="lbl_path_width">Path Width (Blocks)</label>
+                                <div class="step-input">
+                                    <button class="btn-step" onclick="changeVal('cfgPathWidth', -1)">-</button>
+                                    <input type="number" id="cfgPathWidth" value="3" min="1" max="15" step="1">
+                                    <button class="btn-step" onclick="changeVal('cfgPathWidth', 1)">+</button>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label data-i18n="lbl_floor_height">Floor Height (Blocks)</label>
+                                <div class="step-input">
+                                    <button class="btn-step" onclick="changeVal('cfgFloorHeight', -1)">-</button>
+                                    <input type="number" id="cfgFloorHeight" value="5" min="3" max="15" step="1">
+                                    <button class="btn-step" onclick="changeVal('cfgFloorHeight', 1)">+</button>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label data-i18n="lbl_start_direction">Start Direction</label>
+                                <select id="cfgStartDirection">
+                                    <option value="bottom" selected data-i18n="dir_bottom">Bottom ➔ Top (Floor 1 Entrance)</option>
+                                    <option value="top" data-i18n="dir_top">Top ➔ Bottom (Floor N Entrance)</option>
+                                </select>
+                                <span class="form-help" data-i18n="help_start_direction">Set dungeon entrance & stair direction.</span>
+                            </div>
+                        </div>
+
+                        <!-- Sub-tab content: Algorithm -->
+                        <div id="sub-algorithm" class="sub-content">
+                            <div class="form-group">
+                                <label data-i18n="lbl_algorithm">Generation Algorithm</label>
+                                <select id="cfgAlgorithm">
+                                    <option value="dfs" selected>DFS (Recursive Backtracker)</option>
+                                    <option value="prim">Prim's Algorithm</option>
+                                    <option value="kruskal">Kruskal's Algorithm</option>
+                                </select>
+                                <span class="form-help" id="algoHelpText" data-i18n="help_algo_dfs">🏰 Best for Towers & Castles. Creates long winding corridors and deep dead-ends.</span>
+                            </div>
+                            <div class="form-group">
+                                <label data-i18n="lbl_complexity">Maze Path Complexity (0-10)</label>
+                                <div class="step-input">
+                                    <button class="btn-step" onclick="changeVal('cfgMazeComplexity', -1)">-</button>
+                                    <input type="number" id="cfgMazeComplexity" value="5" min="0" max="10" step="1">
+                                    <button class="btn-step" onclick="changeVal('cfgMazeComplexity', 1)">+</button>
+                                </div>
+                            </div>
+
+                            <div class="section-divider">
+                                <span data-i18n="lbl_placement_diff">Room & Spawn Placement (0-10)</span>
+                            </div>
+
+                            <div class="form-group">
+                                <label data-i18n="lbl_monster_density">Monster Density (0-10)</label>
+                                <div class="step-input">
+                                    <button class="btn-step" onclick="changeVal('cfgMonsterDensity', -1)">-</button>
+                                    <input type="number" id="cfgMonsterDensity" value="5" min="0" max="10" step="1">
+                                    <button class="btn-step" onclick="changeVal('cfgMonsterDensity', 1)">+</button>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label data-i18n="lbl_miniboss_freq">MiniBoss Frequency (0-10)</label>
+                                <div class="step-input">
+                                    <button class="btn-step" onclick="changeVal('cfgMiniBossFreq', -1)">-</button>
+                                    <input type="number" id="cfgMiniBossFreq" value="5" min="0" max="10" step="1">
+                                    <button class="btn-step" onclick="changeVal('cfgMiniBossFreq', 1)">+</button>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label data-i18n="lbl_trap_density">Trap Density (0-10)</label>
+                                <div class="step-input">
+                                    <button class="btn-step" onclick="changeVal('cfgTrapDensity', -1)">-</button>
+                                    <input type="number" id="cfgTrapDensity" value="5" min="0" max="10" step="1">
+                                    <button class="btn-step" onclick="changeVal('cfgTrapDensity', 1)">+</button>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label data-i18n="lbl_secret_freq">Secret Frequency (0-10)</label>
+                                <div class="step-input">
+                                    <button class="btn-step" onclick="changeVal('cfgSecretFreq', -1)">-</button>
+                                    <input type="number" id="cfgSecretFreq" value="5" min="0" max="10" step="1">
+                                    <button class="btn-step" onclick="changeVal('cfgSecretFreq', 1)">+</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Sub-tab content: Seed -->
+                        <div id="sub-seed" class="sub-content">
+                            <div class="form-group">
+                                <label data-i18n="lbl_seed">Seed Text</label>
+                                <div class="input-with-btn">
+                                    <input type="text" id="cfgSeed" value="Dungeons2026">
+                                    <button id="btnRandomSeed"><i class="fa-solid fa-dice"></i></button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Reset to Defaults Button inside Maze Settings -->
+                        <div class="margin-top-lg">
+                            <button id="btnResetDefaults" class="btn btn-warning full-width">
+                                <i class="fa-solid fa-rotate-left"></i> <span data-i18n="btn_reset_defaults">Reset to Defaults</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Tab 2: Special Rooms -->
+                    <div id="tab-rooms" class="tab-content">
+                        <div class="panel-header">
+                            <h3><i class="fa-solid fa-crown"></i> <span data-i18n="tab_rooms">Special Rooms</span></h3>
+                            <button id="btnAddRoom" class="icon-btn-primary" title="Add Room">
+                                <i class="fa-solid fa-plus"></i>
+                            </button>
+                        </div>
+                        <p class="tool-desc" data-i18n="desc_special_rooms">Configure custom special room rules (Boss, Start, MiniBoss, Treasure) for maze generation:</p>
+
+                        <div class="filter-bar">
+                            <div class="filter-group">
+                                <select id="filterRoomType">
+                                    <option value="all">🌟 All Types</option>
+                                    <option value="BOSS">👑 Boss Room</option>
+                                    <option value="MINI_BOSS">👹 MiniBoss Room</option>
+                                    <option value="START">🏁 Start Room</option>
+                                    <option value="TREASURE">💎 Treasure Room</option>
+                                    <option value="PUZZLE">🧩 Puzzle Room</option>
+                                </select>
+                            </div>
+                            <div class="filter-group">
+                                <select id="filterRoomFloor">
+                                    <option value="all">🏢 All Floors</option>
+                                    <option value="first">🥇 First Floor</option>
+                                    <option value="final">👑 Final Floor</option>
+                                    <option value="odd">🔢 Odd Floors</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div id="specialRoomsList" class="special-rooms-list">
+                            <!-- Custom special room cards rendered dynamically via JS -->
+                        </div>
+                    </div>
+
+                    <!-- Tab 3: Keys & Quest Items -->
+                    <div id="tab-entities" class="tab-content">
+                        <div class="panel-header">
+                            <h3><i class="fa-solid fa-key"></i> <span data-i18n="tab_entities">Keys & Quest Items</span></h3>
+                            <button id="btnAddQuestItem" class="icon-btn-primary" title="Add Key">
+                                <i class="fa-solid fa-plus"></i>
+                            </button>
+                        </div>
+                        <p class="tool-desc" data-i18n="desc_quest_items">Manage key items for doors, quest triggers, and treasure locks:</p>
+
+                        <div class="filter-bar">
+                            <div class="filter-group">
+                                <select id="filterQuestMode">
+                                    <option value="all">🌐 All Modes</option>
+                                    <option value="auto">🎲 Auto Placement</option>
+                                    <option value="room">🔒 Locked to Room</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div id="questItemsList" class="special-rooms-list">
+                            <!-- Custom quest item cards rendered dynamically via JS -->
+                        </div>
+                    </div>
+
+                    <!-- Tab 4: Tools (Tile Painter) -->
+                    <div id="tab-tools" class="tab-content">
+                        <div class="panel-header">
+                            <h3><i class="fa-solid fa-paint-brush"></i> <span data-i18n="tab_tools">Tile Painter</span></h3>
+                        </div>
+                        
+                        <!-- Paint Mode Toggle Bar -->
+                        <div class="paint-mode-box">
+                            <div class="paint-mode-header">
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="chkPaintMode">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                                <span id="lblPaintModeStatus" class="paint-mode-status">🎨 Paint Mode: OFF</span>
+                            </div>
+                            <p class="paint-mode-help"><i class="fa-solid fa-circle-info"></i> Hold <kbd>Shift</kbd> key to paint anytime while dragging!</p>
+                        </div>
+
+                        <!-- Keyboard Shortcuts Guide Card -->
+                        <div class="shortcut-guide-card">
+                            <div class="shortcut-card-header">
+                                <i class="fa-solid fa-keyboard"></i> <span data-i18n="lbl_shortcuts_title">Keyboard Shortcuts Guide</span>
+                            </div>
+                            <div class="shortcut-grid">
+                                <div class="shortcut-item">
+                                    <span class="shortcut-keys"><kbd>Shift</kbd> + <span data-i18n="lbl_drag">Drag</span></span>
+                                    <span class="shortcut-desc" data-i18n="lbl_paint_anywhere">Hold to Paint Tiles</span>
+                                </div>
+                                <div class="shortcut-item">
+                                    <span class="shortcut-keys"><kbd>Ctrl</kbd> + <kbd>Z</kbd></span>
+                                    <span class="shortcut-desc" data-i18n="lbl_undo_action">Undo Last Paint</span>
+                                </div>
+                                <div class="shortcut-item">
+                                    <span class="shortcut-keys"><kbd>Ctrl</kbd> + <kbd>Y</kbd></span>
+                                    <span class="shortcut-desc" data-i18n="lbl_redo_action">Redo Action</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <p class="tool-desc" data-i18n="lbl_brush_desc">Click to select a tile brush to paint on maze grid:</p>
+                        
+                        <div class="brush-grid-4col">
+                            <div class="brush-card active" data-brush="1">
+                                <div class="brush-icon-box"><span>🟦</span></div>
+                                <span class="brush-name" data-i18n="brush_path">Path</span>
+                            </div>
+                            <div class="brush-card" data-brush="0">
+                                <div class="brush-icon-box"><span>⬛</span></div>
+                                <span class="brush-name" data-i18n="brush_wall">Wall</span>
+                            </div>
+                            <div class="brush-card" data-brush="START">
+                                <div class="brush-icon-box"><span>🏁</span></div>
+                                <span class="brush-name" data-i18n="brush_start">Start</span>
+                            </div>
+                            <div class="brush-card" data-brush="STAIRS_UP">
+                                <div class="brush-icon-box"><span>⬆️</span></div>
+                                <span class="brush-name" data-i18n="brush_stairs_up">Stairs Up</span>
+                            </div>
+                            <div class="brush-card" data-brush="STAIRS_DOWN">
+                                <div class="brush-icon-box"><span>⬇️</span></div>
+                                <span class="brush-name" data-i18n="brush_stairs_down">Stairs Dn</span>
+                            </div>
+                            <div class="brush-card" data-brush="BOSS">
+                                <div class="brush-icon-box"><span>👑</span></div>
+                                <span class="brush-name" data-i18n="brush_boss">Boss</span>
+                            </div>
+                            <div class="brush-card" data-brush="MINI_BOSS">
+                                <div class="brush-icon-box"><span>👹</span></div>
+                                <span class="brush-name" data-i18n="brush_miniboss">MiniBoss</span>
+                            </div>
+                            <div class="brush-card" data-brush="MONSTER">
+                                <div class="brush-icon-box"><span>🧟</span></div>
+                                <span class="brush-name" data-i18n="brush_monster">Monster</span>
+                            </div>
+                            <div class="brush-card" data-brush="TRAP">
+                                <div class="brush-icon-box"><span>💣</span></div>
+                                <span class="brush-name" data-i18n="brush_trap">Trap</span>
+                            </div>
+                            <div class="brush-card" data-brush="SECRET">
+                                <div class="brush-icon-box"><span>💎</span></div>
+                                <span class="brush-name" data-i18n="brush_secret">Secret</span>
+                            </div>
+                            <div class="brush-card" data-brush="DOOR">
+                                <div class="brush-icon-box"><span>🚪</span></div>
+                                <span class="brush-name" data-i18n="brush_door">Door</span>
+                            </div>
+                            <div class="brush-card" data-brush="SHOP">
+                                <div class="brush-icon-box"><span>🛒</span></div>
+                                <span class="brush-name" data-i18n="brush_shop">Shop NPC</span>
+                            </div>
+                            <div class="brush-card" data-brush="PORTAL">
+                                <div class="brush-icon-box"><span>🌀</span></div>
+                                <span class="brush-name" data-i18n="brush_portal">Portal</span>
+                            </div>
+                            <div class="brush-card" data-brush="BREAKABLE">
+                                <div class="brush-icon-box"><span>🧱</span></div>
+                                <span class="brush-name" data-i18n="brush_breakable">Breakable</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tab 5: Import JSON Map Data -->
+                    <div id="tab-import" class="tab-content">
+                        <div class="panel-header">
+                            <h3><i class="fa-solid fa-file-import"></i> <span data-i18n="tab_import">Import JSON</span></h3>
+                        </div>
+                        <p class="tool-desc" data-i18n="desc_import">Upload a previously exported DungeonsTower JSON file to restore settings, rooms, keys, and canvas grid for editing:</p>
+
+                        <div class="file-upload-box" id="dropZoneJSON">
+                            <i class="fa-solid fa-cloud-arrow-up upload-icon"></i>
+                            <p class="upload-title" data-i18n="lbl_upload_json">Drag & Drop JSON file here</p>
+                            <p class="upload-sub">or click to browse from computer</p>
+                            <input type="file" id="jsonFileInput" accept=".json" class="file-input-hidden">
+                        </div>
+
+                        <div id="importStatus" class="import-status-msg" style="display: none;"></div>
+                    </div>
+
                 </div>
-                <div class="zoom-controls">
-                    <button onclick="window.zoomMaze(1)">➕ Zoom In</button>
-                    <button onclick="window.zoomMaze(0)">Reset</button>
-                    <button onclick="window.zoomMaze(-1)">➖ Zoom Out</button>
+
+                <div class="panel-credit-footer">
+                    <div class="credit-author">
+                        <i class="fa-solid fa-code"></i> Developed by <a href="https://github.com/juimuifun" target="_blank" rel="noopener"><strong>JuiMuiFun</strong></a>
+                    </div>
+                    <div class="credit-links">
+                        <a href="https://modrinth.com/plugin/dungeons-tower" target="_blank" rel="noopener" title="Modrinth Plugin Page"><i class="fa-solid fa-box-open"></i> Modrinth</a>
+                        <span class="dot">•</span>
+                        <a href="https://github.com/juimuifun/Maze-Generator-Dungeons-Tower" target="_blank" rel="noopener" title="GitHub Repository"><i class="fa-brands fa-github"></i> GitHub</a>
+                    </div>
                 </div>
-            </div>
-            
-            <!-- พื้นที่รองรับการ Zoom -->
-            <div id="mazeViewArea" class="maze-view-area">
-                <div id="mazeContainer" class="maze-container-zoomable"></div>
-            </div>
+            </aside>
 
-            <!-- ลายน้ำ (Watermark) -->
-            <div class="watermark">
-                <p style="margin: 0 0 5px 0; font-size: 24px;">Created by <strong>JuiMuiFun</strong></p>
-                <a href="https://modrinth.com/plugin/dungeons-tower" target="_blank" style="font-size: 18px; color: #4CAF50; font-weight: bold; text-decoration: none; pointer-events: auto; cursor: pointer;">Dungeons Tower Plugin</a>
-            </div>
-        </div>
-    </div>
+            <!-- 3. Interactive Central Canvas Viewport -->
+            <main class="viewport-area">
+                <!-- Top Toolbar on Viewport -->
+                <div class="viewport-toolbar">
+                    <div class="toolbar-left">
+                        <button id="btnUndo" class="icon-btn" title="Undo (ย้อนกลับ)" data-i18n-title="title_undo"><i class="fa-solid fa-arrow-rotate-left"></i></button>
+                        <button id="btnRedo" class="icon-btn" title="Redo (ทำซ้ำ)" data-i18n-title="title_redo"><i class="fa-solid fa-arrow-rotate-right"></i></button>
+                        <div class="divider"></div>
+                        <button id="btnToggleGuide" class="btn btn-outline-sm">
+                            <i class="fa-solid fa-route"></i> <span data-i18n="lbl_guide_path">Guide Path</span>
+                        </button>
+                    </div>
 
-    <!-- Room Inspector Modal -->
-    <div id="inspectorModal" class="modal-overlay" style="display:none;">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 id="inspectorTitle">Room Inspector</h3>
-                <button onclick="window.closeInspector()" class="btn-danger">X</button>
-            </div>
-            <div class="modal-body">
-                <p><strong>Coordinates:</strong> <span id="inspectorCoords"></span></p>
-                <p><strong>Type:</strong> <span id="inspectorType"></span></p>
-                <hr style="border: 1px solid #444;">
-                <h4>Markers (Spawners, Doors, etc.)</h4>
-                <div id="markersContainer"></div>
-                <button onclick="window.addMarkerUI()" class="btn-primary" style="font-size:12px; margin-top:10px;">+ Add Marker</button>
-            </div>
-            <div class="modal-footer">
-                <button onclick="window.saveInspector()" class="btn-primary">Save Changes</button>
-            </div>
+                    <!-- Floor Selector Tabs -->
+                    <div class="floor-tabs">
+                        <button id="btnPrevFloor" class="icon-btn-sm"><i class="fa-solid fa-chevron-left"></i></button>
+                        <span id="floorBadge" class="badge-floor">Floor 1 / 3</span>
+                        <button id="btnNextFloor" class="icon-btn-sm"><i class="fa-solid fa-chevron-right"></i></button>
+                    </div>
+                </div>
+
+                <!-- Maze Render Canvas Container -->
+                <div id="viewport" class="maze-canvas-viewport">
+                    <div id="gridContainer" class="maze-grid-container">
+                        <div class="placeholder-card">
+                            <i class="fa-solid fa-dungeon card-icon"></i>
+                            <h3 data-i18n="placeholder_title">DungeonsTower Maze Generator</h3>
+                            <p data-i18n="placeholder_desc">Adjust settings and click "Regenerate" to build maze.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bottom Right Floating Zoom Controller Bar -->
+                <div class="zoom-controls-bar">
+                    <button id="btnZoomOut" class="zoom-btn" title="Zoom Out"><i class="fa-solid fa-minus"></i></button>
+                    <span id="zoomPercent" class="zoom-text">100%</span>
+                    <button id="btnZoomIn" class="zoom-btn" title="Zoom In"><i class="fa-solid fa-plus"></i></button>
+                    <button id="btnResetZoom" class="zoom-btn" title="Reset View"><i class="fa-solid fa-expand"></i></button>
+                </div>
+            </main>
+
         </div>
     </div>
 
     <script type="module" src="app.js"></script>
 </body>
-
 </html>

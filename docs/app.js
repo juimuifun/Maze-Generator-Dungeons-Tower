@@ -1,735 +1,1403 @@
-import { generateMultiFloorMaze } from './src/mazeGenerator.js';
-import { findShortestPath } from './src/pathfinder.js';
+// DungeonsTower Generator V2 - Main App Controller & i18n System
+import { generateMazeV2, recalculateGuidePath } from './src/mazeGenerator.js';
+import { renderFloorCanvas } from './src/canvasRenderer.js';
 
-let currentMazeData = null;
-let isGuideVisible = false;
-let currentFloorIndex = 0;
-let lastConfig = null;
-
-// Global Settings & Inspector State
-window.customItems = [];
-let inspectedCell = null;
-let currentMarkers = [];
-
-// ตัวแปรสำหรับเช็คการลากเมาส์ระบายสี
-let isDrawing = false;
-window.addEventListener('mousedown', () => isDrawing = true);
-window.addEventListener('mouseup', () => isDrawing = false);
-
-// ตรวจจับการกด Spacebar เพื่อใช้ลากจอ
-window.isSpaceDown = false;
-window.addEventListener('keydown', e => { if (e.code === 'Space') window.isSpaceDown = true; });
-window.addEventListener('keyup', e => { if (e.code === 'Space') window.isSpaceDown = false; });
-
-// ระบบ Zoom และ Pan (ลากจอ)
-let currentZoom = 1;
-let translateX = 0;
-let translateY = 0;
-
-window.zoomMaze = function(direction) {
-    if (direction > 0) currentZoom += 0.2;
-    else if (direction < 0) currentZoom -= 0.2;
-    else {
-        currentZoom = 1; // Reset
-        translateX = 0;
-        translateY = 0;
-    }
-    
-    // จำกัดขอบเขตการซูม (20% ถึง 500%)
-    currentZoom = Math.max(0.2, Math.min(currentZoom, 5)); 
-    const container = document.getElementById('mazeContainer');
-    if (container) {
-        container.style.transform = `translate(${translateX}px, ${translateY}px) scale(${currentZoom})`;
+// Language Dictionaries (Base: EN & TH)
+const i18n = {
+    en: {
+        btn_regenerate: "Regenerate",
+        btn_export_json: "Export JSON",
+        tab_maze: "Maze Settings",
+        tab_rooms: "Special Rooms",
+        tab_entities: "Keys & Quest Items",
+        nav_keys: "Keys & Items",
+        tab_tools: "Tile Painter",
+        tab_import: "Import JSON",
+        sub_dimensions: "Dimensions",
+        sub_algorithm: "Algorithm",
+        sub_seed: "Seed",
+        sub_dim: "Dimensions",
+        sub_algo: "Algorithm",
+        lbl_rows: "Rows (Length)",
+        lbl_cols: "Columns (Width)",
+        lbl_floors: "Floors Count",
+        lbl_path_width: "Path Width (Blocks)",
+        lbl_floor_height: "Floor Height (Blocks)",
+        lbl_start_direction: "Start Direction",
+        lbl_start_dir: "Start Direction",
+        dir_bottom: "Bottom ➔ Top (Floor 1 Entrance)",
+        dir_top: "Top ➔ Bottom (Floor N Entrance)",
+        opt_start_bottom: "Bottom ➔ Top ⬆",
+        opt_start_top: "Top ➔ Bottom ⬇",
+        help_start_direction: "Set dungeon entrance & stair direction.",
+        help_start_dir: "Set dungeon entrance & stair direction.",
+        lbl_algorithm: "Generation Algorithm",
+        lbl_algo: "Generation Algorithm",
+        help_algo_dfs: "🏰 Best for Towers & Castles. Creates long winding corridors and deep dead-ends.",
+        help_algo_prim: "🕳️ Best for Natural Caves & Mines. Creates short branching paths with many small junctions.",
+        help_algo_kruskal: "🏛️ Best for Ruins & Catacombs. Creates balanced, uniform maze patterns across the map.",
+        lbl_complexity: "Maze Path Complexity (0-10)",
+        lbl_placement_diff: "Room & Spawn Placement (0-10)",
+        lbl_monster_density: "Monster Density (0-10)",
+        lbl_miniboss_freq: "MiniBoss Frequency (0-10)",
+        lbl_trap_density: "Trap Density (0-10)",
+        lbl_secret_freq: "Secret Frequency (0-10)",
+        btn_add_room: "Add Room",
+        desc_special_rooms: "Configure custom special room rules (Boss, Start, MiniBoss, Treasure) for maze generation:",
+        lbl_room_name: "Room Name / Quest ID",
+        lbl_room_type: "Room Type",
+        lbl_room_size: "Dimensions (W x H)",
+        lbl_floor_rule: "Target Floor",
+        rule_final: "Final Floor Only",
+        rule_first: "First Floor Only",
+        rule_odd: "Odd Floors Only",
+        rule_all: "All Floors",
+        btn_add_item: "Add Key / Item",
+        desc_quest_items: "Configure quest keys, emblems, and secret room triggers (Auto-placed or Locked to Special Rooms):",
+        lbl_item_name: "Item / Key Name",
+        lbl_item_key_id: "Key / Item ID",
+        lbl_placement_mode: "Placement Mode",
+        mode_auto: "🎲 Auto Placement (Dead-ends / Secrets)",
+        mode_room: "🔒 Locked to Special Room",
+        lbl_target_room: "Target Special Room",
+        lbl_seed: "Seed Text",
+        lbl_brush_desc: "Click to select a tile brush to paint on maze grid:",
+        brush_path: "Path",
+        brush_wall: "Wall",
+        brush_start: "Start",
+        brush_stairs_up: "Stairs Up",
+        brush_stairs_down: "Stairs Dn",
+        brush_boss: "Boss",
+        brush_miniboss: "MiniBoss",
+        brush_monster: "Monster",
+        brush_trap: "Trap",
+        brush_secret: "Secret",
+        brush_door: "Door",
+        brush_quest: "Key Item",
+        brush_shop: "Shop NPC",
+        brush_portal: "Portal",
+        brush_breakable: "Breakable",
+        desc_import: "Upload a previously exported DungeonsTower JSON file to restore settings, rooms, keys, and canvas grid for editing:",
+        lbl_upload_json: "Drag & Drop JSON file here",
+        lbl_shortcuts_title: "Keyboard Shortcuts Guide",
+        lbl_drag: "Drag Mouse",
+        lbl_paint_anywhere: "Hold to Paint Tiles",
+        lbl_undo_action: "Undo Last Paint",
+        lbl_redo_action: "Redo Action",
+        btn_generate: "Generate Maze",
+        btn_download_json: "Download JSON",
+        btn_reset_defaults: "Reset to Defaults",
+        lbl_guide_path: "Guide Path",
+        placeholder_title: "DungeonsTower Maze Generator",
+        placeholder_desc: "Adjust settings and click \"Regenerate\" to build maze."
+    },
+    th: {
+        btn_regenerate: "สร้างเขาวงกตใหม่",
+        btn_export_json: "ส่งออก JSON",
+        tab_maze: "ตั้งค่าเขาวงกต",
+        tab_rooms: "ห้องพิเศษ & บอส",
+        tab_entities: "ไอเทมเควส & กุญแจ",
+        nav_keys: "กุญแจ",
+        tab_tools: "เครื่องมือระบายสี",
+        tab_import: "นำเข้าไฟล์ JSON",
+        sub_dimensions: "ขนาดเขาวงกต",
+        sub_algorithm: "อัลกอริทึม",
+        sub_seed: "Seed",
+        sub_dim: "ขนาด",
+        sub_algo: "อัลกอริทึม",
+        lbl_rows: "ความยาว (Rows)",
+        lbl_cols: "ความกว้าง (Columns)",
+        lbl_floors: "จำนวนชั้น",
+        lbl_path_width: "ความกว้างทางเดิน (บล็อก)",
+        lbl_floor_height: "ความสูงต่อชั้น (บล็อก)",
+        lbl_start_direction: "ทิศทางเริ่มต้น",
+        lbl_start_dir: "ทิศทางเริ่มต้น",
+        dir_bottom: "ล่าง ➔ บน (ทางเข้าชั้น 1)",
+        dir_top: "บน ➔ ล่าง (ทางเข้าชั้นสูงสุด)",
+        opt_start_bottom: "ล่าง ➔ บน ⬆",
+        opt_start_top: "บน ➔ ล่าง ⬇",
+        help_start_direction: "กำหนดทิศทางจุดเริ่มต้นของดันเจี้ยนและบันได",
+        help_start_dir: "ทิศทางจุดเริ่มลุยและบันได",
+        lbl_algorithm: "อัลกอริทึมในการสร้าง",
+        lbl_algo: "อัลกอริทึมในการสร้าง",
+        help_algo_dfs: "🏰 เหมาะกับหอคอย & ปราสาท สร้างทางเดินยาวคดเคี้ยวและทางตันลึก",
+        help_algo_prim: "🕳️ เหมาะกับถ้ำธรรมชาติ & เหมือง สร้างทางแยกย่อยสั้นๆ จำนวนมาก",
+        help_algo_kruskal: "🏛️ เหมาะกับซากโบราณสถาน & สุสานใต้ดิน สร้างรูปแบบเขาวงกตที่กระจายตัวสมดุล",
+        lbl_complexity: "ความซับซ้อนเส้นทาง (0-10)",
+        lbl_placement_diff: "การวางห้อง & ระดับความยาก (0-10)",
+        lbl_monster_density: "ความหนาแน่นมอนสเตอร์ (0-10)",
+        lbl_miniboss_freq: "อัตราเกิด MiniBoss (0-10)",
+        lbl_trap_density: "ความหนาแน่นกับดัก (0-10)",
+        lbl_secret_freq: "อัตราเกิดพื้นที่ลับ (0-10)",
+        btn_add_room: "เพิ่มห้อง",
+        desc_special_rooms: "กำหนดเงื่อนไขห้องพิเศษ (ห้องบอส, ห้องเริ่มต้น, ห้องมินิบอส, ห้องสมบัติ) สำหรับสร้างเขาวงกต:",
+        lbl_room_name: "ชื่อห้อง / Quest Key ID",
+        lbl_room_type: "ประเภทห้อง",
+        lbl_room_size: "ขนาดห้อง (กว้าง x ยาว)",
+        lbl_floor_rule: "เกิดในชั้น",
+        rule_final: "ชั้นสุดท้ายเท่านั้น",
+        rule_first: "ชั้นแรกเท่านั้น",
+        rule_odd: "ชั้นเลขคี่เท่านั้น",
+        rule_all: "ทุกชั้น",
+        btn_add_item: "เพิ่มกุญแจ/ไอเทม",
+        desc_quest_items: "กำหนดกุญแจเควส ไอเทมเงื่อนไข และกุญแจเข้าห้องลับ (สุ่มวางอัตโนมัติ หรือล็อคประจำห้องพิเศษ):",
+        lbl_item_name: "ชื่อไอเทม / กุญแจ",
+        lbl_item_key_id: "รหัส Key / Item ID",
+        lbl_placement_mode: "รูปแบบการวางตำแหน่ง",
+        mode_auto: "🎲 สุ่มวางอัตโนมัติ (ตามทางตัน/หีบลับ)",
+        mode_room: "🔒 ล็อคประจำห้องพิเศษ (Special Room)",
+        lbl_target_room: "เลือกห้องพิเศษที่ต้องการล็อค",
+        lbl_seed: "ข้อความ Seed",
+        lbl_boss_room: "ห้อง Boss (ชั้นสุดท้าย 5x5)",
+        lbl_miniboss_room: "ห้อง MiniBoss (3x3)",
+        lbl_encounter_diff: "ระดับความยากของศัตรู (1-10)",
+        lbl_traps: "เกิดกับดัก (Traps)",
+        lbl_secrets: "เกิดพื้นที่ลับ (Secrets)",
+        lbl_brush_desc: "คลิกเลือกบล็อกสำหรับระบายบนเขาวงกต:",
+        brush_path: "ทางเดิน",
+        brush_wall: "กำแพง",
+        brush_start: "จุดเริ่ม",
+        brush_stairs_up: "บันไดขึ้น",
+        brush_stairs_down: "บันไดลง",
+        brush_boss: "บอส",
+        brush_miniboss: "มินิบอส",
+        brush_monster: "มอนสเตอร์",
+        brush_trap: "กับดัก",
+        brush_secret: "จุดลับ",
+        brush_door: "ประตู",
+        brush_quest: "กุญแจ",
+        brush_shop: "ร้านค้า",
+        brush_portal: "พอร์ทัล",
+        brush_breakable: "กำแพงพัง",
+        desc_import: "อัปโหลดไฟล์ DungeonsTower JSON ที่เคยส่งออกไว้ เพื่อดึงการตั้งค่า, ห้องพิเศษ, กุญแจ และบล็อกบน Canvas กลับมาแก้ไขใหม่:",
+        lbl_upload_json: "ลากและวางไฟล์ JSON ตรงนี้",
+        lbl_shortcuts_title: "คู่มือใช้งานคีย์ลัด (Shortcuts)",
+        lbl_drag: "ลากเมาส์",
+        lbl_paint_anywhere: "กดค้างเพื่อระบายสีบล็อก",
+        lbl_undo_action: "ย้อนกลับการระบายสี",
+        lbl_redo_action: "ทำซ้ำการระบายสี",
+        btn_generate: "สร้างเขาวงกต",
+        btn_download_json: "ดาวน์โหลด JSON",
+        btn_reset_defaults: "รีเซ็ตค่าเริ่มต้น",
+        lbl_guide_path: "เส้นทางไกด์",
+        placeholder_title: "ระบบสร้างเขาวงกต DungeonsTower",
+        placeholder_desc: "ปรับแต่งค่าและกดปุ่ม \"Regenerate\" ด้านบนเพื่อเริ่มเรนเดอร์"
     }
 };
 
-// ดักจับ Scroll เมาส์ และระบบ Panning
+let currentLang = 'en';
+
 document.addEventListener('DOMContentLoaded', () => {
-    const viewArea = document.getElementById('mazeViewArea');
-    const container = document.getElementById('mazeContainer');
-    if (!viewArea || !container) return;
-    
-    window.renderCustomItemsUI(); // Init empty list visually
+    initLanguageSwitcher();
+    initNavigationTabs();
+    initDrawerCollapse();
+    initSubTabs();
+    initAlgorithmHelper();
+    initSeedGenerator();
+    initZoomControls();
+    initInputValidation();
+    initSpecialRoomsBuilder();
+    initQuestItemsBuilder();
+    initBrushSelector();
+    initResetDefaults();
+    initImportJSON();
+    initMainGenerateButton();
+    initFloorNavigation();
+    applyLanguage(currentLang);
+});
 
-    viewArea.addEventListener('wheel', (e) => {
-        e.preventDefault(); // ป้องกันเบราว์เซอร์เลื่อนหน้าจอ
-        window.zoomMaze(e.deltaY < 0 ? 1 : -1);
-    }, { passive: false });
+window.activeBrush = '1';
 
-    // ระบบ Panning (ลากเมาส์เลื่อนจอ)
-    let isPanning = false;
-    let startX = 0;
-    let startY = 0;
+function initBrushSelector() {
+    document.querySelectorAll('.brush-card').forEach(card => {
+        card.addEventListener('click', () => {
+            document.querySelectorAll('.brush-card').forEach(c => c.classList.remove('active'));
+            card.classList.add('active');
+            window.activeBrush = card.getAttribute('data-brush');
+        });
+    });
+}
 
-    viewArea.addEventListener('mousedown', (e) => {
-        const isEditMode = document.getElementById('editModeToggle')?.checked;
-        // ลากจอได้ถ้า: ไม่ได้เปิด Edit Mode, กด Spacebar, คลิกขวา/กลาง, หรือคลิกซ้ายพื้นที่ว่าง
-        if (!isEditMode || window.isSpaceDown || e.button === 1 || e.button === 2 || (e.button === 0 && !e.target.closest('.cell'))) {
-            e.preventDefault();
-            isPanning = true;
-            startX = e.clientX - translateX;
-            startY = e.clientY - translateY;
-            viewArea.style.cursor = 'grabbing';
+// Special Rooms Builder State & Logic
+window.customSpecialRooms = [];
+
+function initSpecialRoomsBuilder() {
+    const btnAdd = document.getElementById('btnAddSpecialRoom');
+    if (btnAdd) {
+        btnAdd.addEventListener('click', () => {
+            const newId = 'room-' + Date.now();
+            window.customSpecialRooms.forEach(r => r.expanded = false);
+            window.customSpecialRooms.push({
+                id: newId,
+                name: 'Treasure Vault',
+                type: 'TREASURE',
+                width: 3,
+                height: 3,
+                floorRule: 'all',
+                expanded: true
+            });
+            renderSpecialRooms();
+        });
+    }
+
+    const cfgFloors = document.getElementById('cfgFloors');
+    if (cfgFloors) {
+        cfgFloors.addEventListener('change', renderSpecialRooms);
+    }
+
+    document.getElementById('filterRoomFloor')?.addEventListener('change', renderSpecialRooms);
+    document.getElementById('filterRoomType')?.addEventListener('change', renderSpecialRooms);
+
+    renderSpecialRooms();
+}
+
+function renderSpecialRooms() {
+    const container = document.getElementById('specialRoomsList');
+    if (!container) return;
+
+    const filterFloorSelect = document.getElementById('filterRoomFloor');
+    const filterTypeSelect = document.getElementById('filterRoomType');
+
+    const totalFloors = parseInt(document.getElementById('cfgFloors')?.value) || 3;
+
+    // Dynamically update floor filter options based on cfgFloors
+    if (filterFloorSelect) {
+        const currentSelected = filterFloorSelect.value || 'all';
+        let floorFilterHTML = '<option value="all">🏢 All Floors</option>';
+        for (let f = 1; f <= totalFloors; f++) {
+            const val = f === totalFloors ? 'final' : (f === 1 ? 'first' : `floor-${f}`);
+            const tag = f === 1 ? ' (First)' : (f === totalFloors ? ' (Final)' : '');
+            floorFilterHTML += `<option value="${val}" ${currentSelected === val ? 'selected' : ''}>🏢 Floor ${f}${tag}</option>`;
+        }
+        floorFilterHTML += '<option value="all" data-i18n="rule_all">All Floors</option>';
+        floorFilterHTML += '<option value="odd" data-i18n="rule_odd">Odd Floors</option>';
+        floorFilterHTML += '<option value="even">Even Floors</option>';
+        filterFloorSelect.innerHTML = floorFilterHTML;
+    }
+
+    const selectedFloor = filterFloorSelect ? filterFloorSelect.value : 'all';
+    const selectedType = filterTypeSelect ? filterTypeSelect.value : 'all';
+
+    container.innerHTML = '';
+
+    const roomTypeIcons = {
+        BOSS: '👑',
+        START: '🏁',
+        MINI_BOSS: '👹',
+        TREASURE: '💎',
+        PUZZLE: '🧩'
+    };
+
+    // Filter room list by active floor & room type filters
+    const filteredRooms = window.customSpecialRooms.filter(room => {
+        const matchType = (selectedType === 'all' || room.type === selectedType);
+        const matchFloor = (selectedFloor === 'all' || room.floorRule === 'all' || room.floorRule === selectedFloor);
+        return matchType && matchFloor;
+    });
+
+    if (filteredRooms.length === 0) {
+        container.innerHTML = '<div style="font-size: 0.75rem; color: var(--text-muted); text-align: center; padding: 1rem;">No special rooms configured. Click + to add.</div>';
+        return;
+    }
+
+    filteredRooms.forEach((room) => {
+        // Build dynamic floor options based on cfgFloors count
+        let floorOptionsHTML = '';
+        for (let f = 1; f <= totalFloors; f++) {
+            const val = f === totalFloors ? 'final' : (f === 1 ? 'first' : `floor-${f}`);
+            const isSelected = room.floorRule === val || room.floorRule === `floor-${f}`;
+            const floorTag = f === 1 ? ' (First)' : (f === totalFloors ? ' (Final)' : '');
+            floorOptionsHTML += `<option value="${val}" ${isSelected ? 'selected' : ''}>🏢 Floor ${f}${floorTag}</option>`;
+        }
+        floorOptionsHTML += `<option value="all" ${room.floorRule === 'all' ? 'selected' : ''} data-i18n="rule_all">All Floors</option>`;
+        floorOptionsHTML += `<option value="odd" ${room.floorRule === 'odd' ? 'selected' : ''} data-i18n="rule_odd">Odd Floors</option>`;
+        floorOptionsHTML += `<option value="even" ${room.floorRule === 'even' ? 'selected' : ''}>Even Floors</option>`;
+
+        const displayName = room.name ? `${room.name} (${room.width}x${room.height})` : `${room.type} Room (${room.width}x${room.height})`;
+
+        const card = document.createElement('div');
+        card.className = `room-card ${room.expanded ? 'expanded' : ''}`;
+        card.setAttribute('data-id', room.id);
+        card.innerHTML = `
+            <div class="room-card-header" onclick="toggleRoomCard('${room.id}', event)">
+                <div class="room-card-header-left">
+                    <span class="room-type-badge">${roomTypeIcons[room.type] || '🏛️'} ${displayName}</span>
+                </div>
+                <div class="room-card-header-right">
+                    <button class="btn-delete-room" onclick="deleteSpecialRoom('${room.id}', event)" title="Delete Room"><i class="fa-solid fa-trash"></i></button>
+                    <i class="fa-solid fa-chevron-down room-arrow-icon"></i>
+                </div>
+            </div>
+            
+            <div class="room-card-body">
+                <div class="form-group">
+                    <label data-i18n="lbl_room_name">Room Name / Quest ID</label>
+                    <input type="text" value="${room.name || ''}" placeholder="e.g. Boss Chamber / boss_key" oninput="updateSpecialRoomName('${room.id}', this.value)">
+                </div>
+
+                <div class="form-group">
+                    <label data-i18n="lbl_room_type">Room Type</label>
+                    <select onchange="updateSpecialRoom('${room.id}', 'type', this.value)">
+                        <option value="BOSS" ${room.type === 'BOSS' ? 'selected' : ''}>👑 Boss Room</option>
+                        <option value="START" ${room.type === 'START' ? 'selected' : ''}>🏁 Start Room</option>
+                        <option value="MINI_BOSS" ${room.type === 'MINI_BOSS' ? 'selected' : ''}>👹 MiniBoss Room</option>
+                        <option value="TREASURE" ${room.type === 'TREASURE' ? 'selected' : ''}>💎 Treasure Room</option>
+                        <option value="PUZZLE" ${room.type === 'PUZZLE' ? 'selected' : ''}>🧩 Puzzle Room</option>
+                    </select>
+                </div>
+
+                <div class="room-size-grid">
+                    <div class="form-group">
+                        <label>Width (กว้าง)</label>
+                        <div class="step-input">
+                            <button class="btn-step" onclick="updateRoomSize('${room.id}', 'width', -2)">-</button>
+                            <input type="number" value="${room.width}" readonly>
+                            <button class="btn-step" onclick="updateRoomSize('${room.id}', 'width', 2)">+</button>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Height (ยาว)</label>
+                        <div class="step-input">
+                            <button class="btn-step" onclick="updateRoomSize('${room.id}', 'height', -2)">-</button>
+                            <input type="number" value="${room.height}" readonly>
+                            <button class="btn-step" onclick="updateRoomSize('${room.id}', 'height', 2)">+</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label data-i18n="lbl_floor_rule">Target Floor</label>
+                    <select onchange="updateSpecialRoom('${room.id}', 'floorRule', this.value)">
+                        ${floorOptionsHTML}
+                    </select>
+                </div>
+            </div>
+        `;
+        container.appendChild(card);
+    });
+
+    applyLanguage(currentLang);
+}
+
+window.updateSpecialRoomName = function (id, nameValue) {
+    const room = window.customSpecialRooms.find(r => r.id === id);
+    if (room) {
+        room.name = nameValue;
+        // Update header badge text dynamically
+        const badgeEl = document.querySelector(`.room-card[data-id="${id}"] .room-type-badge`);
+        if (badgeEl) {
+            const roomTypeIcons = { BOSS: '👑', START: '🏁', MINI_BOSS: '👹', TREASURE: '💎', PUZZLE: '🧩' };
+            const icon = roomTypeIcons[room.type] || '🏛️';
+            const displayName = room.name ? `${room.name} (${room.width}x${room.height})` : `${room.type} Room (${room.width}x${room.height})`;
+            badgeEl.innerHTML = `${icon} ${displayName}`;
+        }
+    }
+};
+
+window.toggleRoomCard = function (id, event) {
+    if (event.target.closest('.btn-delete-room')) return;
+    window.customSpecialRooms.forEach(r => {
+        if (r.id === id) {
+            r.expanded = !r.expanded;
+        } else {
+            r.expanded = false; // Close other cards
+        }
+    });
+    renderSpecialRooms();
+};
+
+window.updateSpecialRoom = function (id, key, value) {
+    const room = window.customSpecialRooms.find(r => r.id === id);
+    if (room) {
+        room[key] = value;
+        renderSpecialRooms();
+    }
+};
+
+window.updateRoomSize = function (id, key, delta) {
+    const room = window.customSpecialRooms.find(r => r.id === id);
+    if (room) {
+        let val = (room[key] || 3) + delta;
+        val = Math.max(1, Math.min(15, val));
+        if (val % 2 === 0) val += (delta > 0 ? 1 : -1);
+        room[key] = val;
+        renderSpecialRooms();
+    }
+};
+
+window.deleteSpecialRoom = function (id, event) {
+    if (event) event.stopPropagation();
+    window.customSpecialRooms = window.customSpecialRooms.filter(r => r.id !== id);
+    renderSpecialRooms();
+};
+
+// Keys & Quest Items Builder State & Logic
+window.customQuestItems = [];
+
+function initQuestItemsBuilder() {
+    const btnAdd = document.getElementById('btnAddQuestItem');
+    if (btnAdd) {
+        btnAdd.addEventListener('click', () => {
+            const newId = 'item-' + Date.now();
+            window.customQuestItems.forEach(i => i.expanded = false);
+            window.customQuestItems.push({
+                id: newId,
+                name: 'Golden Key',
+                keyId: 'golden_key',
+                mode: 'auto',
+                lockedRoomId: '',
+                floorRule: 'all',
+                expanded: true
+            });
+            renderQuestItems();
+        });
+    }
+
+    document.getElementById('filterQuestFloor')?.addEventListener('change', renderQuestItems);
+    document.getElementById('filterQuestMode')?.addEventListener('change', renderQuestItems);
+    document.getElementById('filterQuestRoom')?.addEventListener('change', renderQuestItems);
+
+    renderQuestItems();
+}
+
+function renderQuestItems() {
+    const container = document.getElementById('questItemsList');
+    if (!container) return;
+
+    const filterFloorSelect = document.getElementById('filterQuestFloor');
+    const filterModeSelect = document.getElementById('filterQuestMode');
+    const filterRoomSelect = document.getElementById('filterQuestRoom');
+
+    const totalFloors = parseInt(document.getElementById('cfgFloors')?.value) || 3;
+
+    // Dynamically update floor filter options based on cfgFloors
+    if (filterFloorSelect) {
+        const currentSelected = filterFloorSelect.value || 'all';
+        let floorFilterHTML = '<option value="all">🏢 All Floors</option>';
+        for (let f = 1; f <= totalFloors; f++) {
+            const val = f === totalFloors ? 'final' : (f === 1 ? 'first' : `floor-${f}`);
+            const tag = f === 1 ? ' (First)' : (f === totalFloors ? ' (Final)' : '');
+            floorFilterHTML += `<option value="${val}" ${currentSelected === val ? 'selected' : ''}>🏢 Floor ${f}${tag}</option>`;
+        }
+        floorFilterHTML += '<option value="all" data-i18n="rule_all">All Floors</option>';
+        floorFilterHTML += '<option value="odd" data-i18n="rule_odd">Odd Floors</option>';
+        floorFilterHTML += '<option value="even">Even Floors</option>';
+        filterFloorSelect.innerHTML = floorFilterHTML;
+    }
+
+    // Populate filterQuestRoom dynamically from customSpecialRooms
+    if (filterRoomSelect) {
+        const currentSelected = filterRoomSelect.value || 'all';
+        let roomFilterHTML = '<option value="all">🏛️ All Target Rooms</option>';
+        window.customSpecialRooms.forEach(r => {
+            const rName = r.name ? r.name : `${r.type} Room`;
+            roomFilterHTML += `<option value="${r.id}" ${currentSelected === r.id ? 'selected' : ''}>🏛️ ${rName}</option>`;
+        });
+        filterRoomSelect.innerHTML = roomFilterHTML;
+    }
+
+    const selectedFloor = filterFloorSelect?.value || 'all';
+    const selectedMode = filterModeSelect?.value || 'all';
+    const selectedRoom = filterRoomSelect?.value || 'all';
+
+    container.innerHTML = '';
+
+    const filteredItems = window.customQuestItems.filter(item => {
+        const matchFloor = (selectedFloor === 'all' || item.floorRule === 'all' || item.floorRule === selectedFloor);
+        const matchMode = (selectedMode === 'all' || item.mode === selectedMode);
+        const matchRoom = (selectedRoom === 'all' || item.lockedRoomId === selectedRoom);
+        return matchFloor && matchMode && matchRoom;
+    });
+
+    if (filteredItems.length === 0) {
+        container.innerHTML = '<div style="font-size: 0.75rem; color: var(--text-muted); text-align: center; padding: 1rem;">No keys or quest items match active filters.</div>';
+        return;
+    }
+
+    filteredItems.forEach((item) => {
+        const displayName = item.name || 'Quest Item / Key';
+
+        // Build dynamic floor options for each item card
+        let floorOptionsHTML = '';
+        for (let f = 1; f <= totalFloors; f++) {
+            const val = f === totalFloors ? 'final' : (f === 1 ? 'first' : `floor-${f}`);
+            const isSelected = item.floorRule === val || item.floorRule === `floor-${f}`;
+            const floorTag = f === 1 ? ' (First)' : (f === totalFloors ? ' (Final)' : '');
+            floorOptionsHTML += `<option value="${val}" ${isSelected ? 'selected' : ''}>🏢 Floor ${f}${floorTag}</option>`;
+        }
+        floorOptionsHTML += `<option value="all" ${item.floorRule === 'all' ? 'selected' : ''} data-i18n="rule_all">All Floors</option>`;
+        floorOptionsHTML += `<option value="odd" ${item.floorRule === 'odd' ? 'selected' : ''} data-i18n="rule_odd">Odd Floors</option>`;
+        floorOptionsHTML += `<option value="even" ${item.floorRule === 'even' ? 'selected' : ''}>Even Floors</option>`;
+
+        // Options for locked room dropdown (populated from customSpecialRooms)
+        let roomOptionsHTML = '<option value="">-- Choose Special Room --</option>';
+        window.customSpecialRooms.forEach((r) => {
+            const rName = r.name ? r.name : `${r.type} Room`;
+            const isSelected = item.lockedRoomId === r.id;
+            roomOptionsHTML += `<option value="${r.id}" ${isSelected ? 'selected' : ''}>🏛️ ${rName} (${r.width}x${r.height})</option>`;
+        });
+
+        const card = document.createElement('div');
+        card.className = `room-card ${item.expanded ? 'expanded' : ''}`;
+        card.innerHTML = `
+            <div class="room-card-header" onclick="toggleQuestItemCard('${item.id}', event)">
+                <div class="room-card-header-left">
+                    <span class="room-type-badge">🔑 ${displayName}</span>
+                </div>
+                <div class="room-card-header-right">
+                    <button class="btn-delete-room" onclick="deleteQuestItem('${item.id}', event)" title="Delete Item"><i class="fa-solid fa-trash"></i></button>
+                    <i class="fa-solid fa-chevron-down room-arrow-icon"></i>
+                </div>
+            </div>
+            
+            <div class="room-card-body">
+                <div class="form-group">
+                    <label data-i18n="lbl_item_name">Item / Key Name</label>
+                    <input type="text" value="${item.name || ''}" placeholder="e.g. Boss Gate Key" oninput="updateQuestItemField('${item.id}', 'name', this.value)">
+                </div>
+
+                <div class="form-group">
+                    <label data-i18n="lbl_item_key_id">Key / Item ID Code</label>
+                    <input type="text" value="${item.keyId || ''}" placeholder="e.g. boss_key_floor3" oninput="updateQuestItemField('${item.id}', 'keyId', this.value)">
+                </div>
+
+                <div class="form-group">
+                    <label data-i18n="lbl_floor_rule">Target Floor</label>
+                    <select onchange="updateQuestItemField('${item.id}', 'floorRule', this.value)">
+                        ${floorOptionsHTML}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label data-i18n="lbl_placement_mode">Spawn Location Mode</label>
+                    <select onchange="updateQuestItemField('${item.id}', 'mode', this.value)">
+                        <option value="auto" ${item.mode === 'auto' ? 'selected' : ''} data-i18n="mode_auto">🎲 Auto (Random Dead-End / Secret)</option>
+                        <option value="room" ${item.mode === 'room' ? 'selected' : ''} data-i18n="mode_room">🔒 Lock to Special Room</option>
+                    </select>
+                </div>
+
+                ${item.mode === 'room' ? `
+                <div class="form-group">
+                    <label data-i18n="lbl_target_room">Locked Special Room</label>
+                    <select onchange="updateQuestItemField('${item.id}', 'lockedRoomId', this.value)">
+                        ${roomOptionsHTML}
+                    </select>
+                </div>
+                ` : ''}
+            </div>
+        `;
+        container.appendChild(card);
+    });
+
+    applyLanguage(currentLang);
+}
+
+window.toggleQuestItemCard = function (id, event) {
+    if (event.target.closest('.btn-delete-room')) return;
+    window.customQuestItems.forEach(i => {
+        if (i.id === id) {
+            i.expanded = !i.expanded;
+        } else {
+            i.expanded = false;
+        }
+    });
+    renderQuestItems();
+};
+
+window.updateQuestItemField = function (id, field, val) {
+    const item = window.customQuestItems.find(i => i.id === id);
+    if (item) {
+        item[field] = val;
+        renderQuestItems();
+    }
+};
+
+window.deleteQuestItem = function (id, event) {
+    if (event) event.stopPropagation();
+    window.customQuestItems = window.customQuestItems.filter(i => i.id !== id);
+    renderQuestItems();
+};
+
+// Auto-clamp typed number inputs to [min, max]
+function initInputValidation() {
+    document.querySelectorAll('.step-input input[type="number"]').forEach(input => {
+        const clamp = () => {
+            let val = parseInt(input.value);
+            const min = parseInt(input.min);
+            const max = parseInt(input.max);
+
+            if (isNaN(val)) val = min || 1;
+            if (!isNaN(min) && val < min) val = min;
+            if (!isNaN(max) && val > max) val = max;
+
+            input.value = val;
+        };
+
+        input.addEventListener('change', clamp);
+        input.addEventListener('blur', clamp);
+    });
+}
+
+// Dynamic Algorithm Recommendation Helper
+function initAlgorithmHelper() {
+    const algoSelect = document.getElementById('cfgAlgorithm');
+    const helpAlgo = document.getElementById('helpAlgo');
+
+    if (algoSelect && helpAlgo) {
+        algoSelect.addEventListener('change', () => {
+            const val = algoSelect.value;
+            const key = `help_algo_${val}`;
+            helpAlgo.setAttribute('data-i18n', key);
+            const dictionary = i18n[currentLang] || i18n.en;
+            if (dictionary[key]) {
+                helpAlgo.textContent = dictionary[key];
+            }
+        });
+    }
+}
+
+// Helper for step input buttons (- / +)
+window.changeVal = function (id, delta) {
+    const input = document.getElementById(id);
+    if (!input) return;
+    let val = parseInt(input.value) || 0;
+    const min = parseInt(input.min) || 1;
+    const max = parseInt(input.max) || 999;
+    val = Math.max(min, Math.min(max, val + delta));
+    input.value = val;
+};
+
+// Language Switcher Logic
+function initLanguageSwitcher() {
+    const langSelect = document.getElementById('langSelect');
+    if (langSelect) {
+        langSelect.addEventListener('change', (e) => {
+            currentLang = e.target.value;
+            applyLanguage(currentLang);
+        });
+    }
+}
+
+function applyLanguage(lang) {
+    const dictionary = i18n[lang] || i18n.en;
+
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        if (dictionary[key]) {
+            el.textContent = dictionary[key];
         }
     });
 
-    window.addEventListener('mousemove', (e) => {
-        if (!isPanning) return;
-        translateX = e.clientX - startX;
-        translateY = e.clientY - startY;
-        container.style.transform = `translate(${translateX}px, ${translateY}px) scale(${currentZoom})`;
+    updateMainActionButtonUI();
+}
+
+// Single Unified Generate / Regenerate Button Controller
+let isGenerated = false;
+
+function initMainGenerateButton() {
+    const btnMain = document.getElementById('btnMainActionTop');
+    const btnSide = document.getElementById('btnGenerateSide');
+
+    const handleAction = () => {
+        const seedInput = document.getElementById('cfgSeed');
+        if (seedInput) {
+            const currentSeed = seedInput.value.trim();
+            // Check if seed starts with Dungeons2026 or seed_ or is empty -> randomize!
+            if (currentSeed === '' || currentSeed.startsWith('Dungeons2026') || currentSeed.startsWith('seed_') || currentSeed.startsWith('Seed_')) {
+                const randomNum = Math.floor(Math.random() * 899999 + 100000);
+                seedInput.value = 'seed_' + randomNum;
+            }
+            // If user typed a custom fixed seed (e.g. MyCustomSeed), keep it unchanged!
+        }
+
+        isGenerated = true;
+        updateMainActionButtonUI();
+        triggerMazeGeneration();
+    };
+
+    if (btnMain) btnMain.addEventListener('click', handleAction);
+    if (btnSide) btnSide.addEventListener('click', handleAction);
+
+    initExportButtons();
+}
+
+function initExportButtons() {
+    const handleExport = () => {
+        if (!window.currentMazeJSON) {
+            alert('Please generate a maze first!');
+            return;
+        }
+
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(window.currentMazeJSON, null, 2));
+        const downloadAnchor = document.createElement('a');
+        downloadAnchor.setAttribute("href", dataStr);
+        downloadAnchor.setAttribute("download", `dungeon_maze_${window.currentMazeJSON.settings.seed}.json`);
+        document.body.appendChild(downloadAnchor);
+        downloadAnchor.click();
+        downloadAnchor.remove();
+    };
+
+    const btnTop = document.getElementById('btnExportTop');
+    const btnSide = document.getElementById('btnExportSide');
+
+    if (btnTop) btnTop.addEventListener('click', handleExport);
+    if (btnSide) btnSide.addEventListener('click', handleExport);
+}
+
+function updateMainActionButtonUI() {
+    const btn = document.getElementById('btnMainActionTop');
+    if (!btn) return;
+
+    const dictionary = i18n[currentLang] || i18n.en;
+
+    if (!isGenerated) {
+        btn.className = 'btn btn-primary';
+        btn.innerHTML = `<i class="fa-solid fa-wand-magic-sparkles"></i> <span>${dictionary.btn_generate || 'Generate Maze'}</span>`;
+    } else {
+        btn.className = 'btn btn-danger';
+        btn.innerHTML = `<i class="fa-solid fa-rotate-right"></i> <span>${dictionary.btn_regenerate || 'Regenerate'}</span>`;
+    }
+}
+
+window.currentMazeJSON = null;
+window.activeFloorIndex = 0;
+window.showGuidePath = false;
+
+function triggerMazeGeneration() {
+    const config = {
+        length: parseInt(document.getElementById('cfgLength')?.value) || 25,
+        width: parseInt(document.getElementById('cfgWidth')?.value) || 25,
+        floors: parseInt(document.getElementById('cfgFloors')?.value) || 3,
+        pathWidth: parseInt(document.getElementById('cfgPathWidth')?.value) || 3,
+        floorHeight: parseInt(document.getElementById('cfgFloorHeight')?.value) || 5,
+        startDirection: document.getElementById('cfgStartDir')?.value || 'bottom',
+        algorithm: document.getElementById('cfgAlgorithm')?.value || 'dfs',
+        mazeComplexity: parseInt(document.getElementById('cfgMazeComplexity')?.value) || 5,
+        monsterDensity: parseInt(document.getElementById('cfgMonsterDensity')?.value) || 5,
+        miniBossFreq: parseInt(document.getElementById('cfgMiniBossFreq')?.value) || 5,
+        trapDensity: parseInt(document.getElementById('cfgTrapDensity')?.value) || 5,
+        secretFreq: parseInt(document.getElementById('cfgSecretFreq')?.value) || 5,
+        seed: document.getElementById('cfgSeed')?.value || 'Dungeons2026'
+    };
+
+    // Generate multi-floor maze JSON using V2 algorithm engine
+    window.currentMazeJSON = generateMazeV2(config, window.customSpecialRooms, window.customQuestItems);
+    window.activeFloorIndex = 0;
+
+    // Sync auto-generated door keys back into customQuestItems UI list
+    if (window.currentMazeJSON && window.currentMazeJSON.unassignedEntities) {
+        window.currentMazeJSON.unassignedEntities.forEach(k => {
+            if (!window.customQuestItems.some(item => item.keyId === k.keyId)) {
+                window.customQuestItems.push({
+                    id: k.id,
+                    name: k.name,
+                    keyId: k.keyId,
+                    mode: k.mode || 'auto',
+                    lockedRoomId: k.targetRoomId || '',
+                    floorRule: k.floorRule || 'all',
+                    expanded: false
+                });
+            }
+        });
+        renderQuestItems();
+    }
+
+    // Render floor onto HTML5 canvas
+    renderCurrentFloor();
+    updateFloorBadge();
+
+    console.log('Maze Generated Successfully!', window.currentMazeJSON);
+}
+
+function renderCurrentFloor() {
+    const container = document.getElementById('gridContainer');
+    if (!container || !window.currentMazeJSON) return;
+
+    const floorData = window.currentMazeJSON.floors[window.activeFloorIndex];
+    renderFloorCanvas(container, floorData, window.showGuidePath);
+}
+
+function updateFloorBadge() {
+    const badge = document.getElementById('floorBadge');
+    if (!badge || !window.currentMazeJSON) return;
+    const total = window.currentMazeJSON.floors.length;
+    badge.textContent = `Floor ${window.activeFloorIndex + 1} / ${total}`;
+}
+
+function initFloorNavigation() {
+    const btnPrev = document.getElementById('btnPrevFloor');
+    const btnNext = document.getElementById('btnNextFloor');
+    const btnGuide = document.getElementById('btnToggleGuide');
+
+    if (btnPrev) {
+        btnPrev.addEventListener('click', () => {
+            if (!window.currentMazeJSON) return;
+            if (window.activeFloorIndex > 0) {
+                window.activeFloorIndex--;
+                renderCurrentFloor();
+                updateFloorBadge();
+            }
+        });
+    }
+
+    if (btnNext) {
+        btnNext.addEventListener('click', () => {
+            if (!window.currentMazeJSON) return;
+            if (window.activeFloorIndex < window.currentMazeJSON.floors.length - 1) {
+                window.activeFloorIndex++;
+                renderCurrentFloor();
+                updateFloorBadge();
+            }
+        });
+    }
+
+    if (btnGuide) {
+        btnGuide.addEventListener('click', () => {
+            window.showGuidePath = !window.showGuidePath;
+            btnGuide.classList.toggle('active', window.showGuidePath);
+            renderCurrentFloor();
+        });
+    }
+}
+
+// 1. Tier 1 Icon Sidebar Tabs Navigation
+function initNavigationTabs() {
+    const iconItems = document.querySelectorAll('.nav-icon-item');
+    const tabContents = document.querySelectorAll('.tab-content');
+    const optionsPanel = document.getElementById('optionsPanel');
+
+    iconItems.forEach(item => {
+        item.addEventListener('click', () => {
+            const targetTab = item.getAttribute('data-tab');
+
+            // Switch active icon item
+            iconItems.forEach(i => i.classList.remove('active'));
+            item.classList.add('active');
+
+            // Switch active tab content in panel
+            tabContents.forEach(content => {
+                if (content.id === targetTab) {
+                    content.classList.add('active');
+                } else {
+                    content.classList.remove('active');
+                }
+            });
+
+            // If panel was collapsed, open it
+            if (optionsPanel && optionsPanel.classList.contains('collapsed')) {
+                optionsPanel.classList.remove('collapsed');
+            }
+        });
+    });
+}
+
+// 2. Options Panel Drawer Collapse Handle Toggle
+function initDrawerCollapse() {
+    const optionsPanel = document.getElementById('optionsPanel');
+    const toggleBtn = document.getElementById('toggleDrawerBtn');
+
+    if (optionsPanel && toggleBtn) {
+        toggleBtn.addEventListener('click', () => {
+            optionsPanel.classList.toggle('collapsed');
+        });
+    }
+}
+
+// 3. Sub-tabs inside Options Panel
+function initSubTabs() {
+    const subTabBtns = document.querySelectorAll('.sub-tab, .sub-tab-btn');
+
+    subTabBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const parentTab = btn.closest('.tab-content');
+            if (!parentTab) return;
+
+            const targetSub = btn.getAttribute('data-sub');
+
+            // Toggle sub-tabs
+            parentTab.querySelectorAll('.sub-tab, .sub-tab-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+
+            // Toggle sub-contents
+            parentTab.querySelectorAll('.sub-content').forEach(sc => {
+                if (sc.id === targetSub) {
+                    sc.classList.add('active');
+                } else {
+                    sc.classList.remove('active');
+                }
+            });
+        });
+    });
+}
+
+// 4. Random Seed Generator
+function initSeedGenerator() {
+    const seedInput = document.getElementById('cfgSeed');
+    const btnRandomSeed = document.getElementById('btnRandomSeed');
+
+    if (seedInput && btnRandomSeed) {
+        btnRandomSeed.addEventListener('click', () => {
+            const randomSeed = 'Seed_' + Math.random().toString(36).substring(2, 9).toUpperCase();
+            seedInput.value = randomSeed;
+
+            // Dice spin animation
+            const icon = btnRandomSeed.querySelector('i');
+            if (icon) {
+                icon.style.transition = 'transform 0.4s ease';
+                icon.style.transform = 'rotate(360deg)';
+                setTimeout(() => {
+                    icon.style.transition = 'none';
+                    icon.style.transform = 'rotate(0deg)';
+                }, 400);
+            }
+        });
+    }
+}
+
+function initResetDefaults() {
+    const btnReset = document.getElementById('btnResetDefaults');
+    if (!btnReset) return;
+
+    btnReset.addEventListener('click', () => {
+        const confirmReset = confirm("คุณต้องการรีเซ็ตค่าเริ่มต้นทั้งหมด (ตั้งค่าเขาวงกต, ห้องพิเศษ, กุญแจเควส และ Canvas) ใช่หรือไม่?");
+        if (!confirmReset) return;
+
+        const setVal = (id, val) => {
+            const el = document.getElementById(id);
+            if (el) el.value = val;
+        };
+
+        setVal('cfgWidth', 25);
+        setVal('cfgLength', 25);
+        setVal('cfgFloors', 3);
+        setVal('cfgPathWidth', 3);
+        setVal('cfgFloorHeight', 5);
+        setVal('cfgStartDirection', 'bottom');
+        setVal('cfgAlgorithm', 'dfs');
+        setVal('cfgMazeComplexity', 5);
+        setVal('cfgMonsterDensity', 5);
+        setVal('cfgMiniBossFreq', 5);
+        setVal('cfgTrapDensity', 5);
+        setVal('cfgSecretFreq', 5);
+        setVal('cfgSeed', 'Dungeons2026');
+
+        window.customSpecialRooms = [];
+        window.customQuestItems = [];
+        window.editorUndoStack = [];
+        window.editorRedoStack = [];
+
+        const chkPaint = document.getElementById('chkPaintMode');
+        if (chkPaint) {
+            chkPaint.checked = false;
+            window.isPaintModeActive = false;
+            const lblStatus = document.getElementById('lblPaintModeStatus');
+            if (lblStatus) {
+                lblStatus.textContent = '🎨 Paint Mode: OFF (Drag to Pan)';
+                lblStatus.style.color = 'var(--text-main)';
+            }
+        }
+
+        renderSpecialRooms();
+        renderQuestItems();
+
+        triggerMazeGeneration();
+        console.log('Reset to Defaults Completed Successfully!');
+    });
+}
+
+function initImportJSON() {
+    const fileInput = document.getElementById('jsonFileInput');
+    const dropZone = document.getElementById('dropZoneJSON');
+    const statusMsg = document.getElementById('importStatus');
+
+    if (!fileInput || !dropZone) return;
+
+    const showStatus = (text, isSuccess) => {
+        if (!statusMsg) return;
+        statusMsg.style.display = 'block';
+        statusMsg.className = `import-status-msg ${isSuccess ? 'success' : 'error'}`;
+        statusMsg.innerHTML = `<i class="fa-solid ${isSuccess ? 'fa-circle-check' : 'fa-circle-exclamation'}"></i> ${text}`;
+    };
+
+    const processFile = (file) => {
+        if (!file || !file.name.toLowerCase().endsWith('.json')) {
+            showStatus('Please select a valid .json file exported from DungeonsTower.', false);
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const data = JSON.parse(e.target.result);
+
+                if (!data.floors || !Array.isArray(data.floors)) {
+                    showStatus('Invalid maze JSON format: Missing floors data.', false);
+                    return;
+                }
+
+                const setVal = (id, val) => {
+                    const el = document.getElementById(id);
+                    if (el && val !== undefined) el.value = val;
+                };
+
+                if (data.settings) {
+                    if (data.settings.dimensions) {
+                        setVal('cfgWidth', data.settings.dimensions.columns);
+                        setVal('cfgLength', data.settings.dimensions.rows);
+                        setVal('cfgFloors', data.settings.dimensions.floors);
+                        setVal('cfgPathWidth', data.settings.dimensions.pathWidth);
+                        setVal('cfgFloorHeight', data.settings.dimensions.floorHeight);
+                    }
+                    if (data.settings.algorithm) {
+                        setVal('cfgAlgorithm', (data.settings.algorithm.type || 'dfs').toLowerCase());
+                        setVal('cfgMazeComplexity', data.settings.algorithm.complexity);
+                    }
+                    if (data.settings.difficulty) {
+                        setVal('cfgMonsterDensity', data.settings.difficulty.monsterDensity);
+                        setVal('cfgMiniBossFreq', data.settings.difficulty.minibossFrequency);
+                        setVal('cfgTrapDensity', data.settings.difficulty.trapDensity);
+                        setVal('cfgSecretFreq', data.settings.difficulty.secretChestFrequency);
+                    }
+                    if (data.settings.seed) setVal('cfgSeed', data.settings.seed);
+                    if (data.settings.startDirection) {
+                        const dir = data.settings.startDirection.startsWith('top') ? 'top' : 'bottom';
+                        setVal('cfgStartDirection', dir);
+                    }
+                }
+
+                if (data.specialRooms && Array.isArray(data.specialRooms)) {
+                    window.customSpecialRooms = [...data.specialRooms];
+                    renderSpecialRooms();
+                }
+
+                if (data.unassignedEntities && Array.isArray(data.unassignedEntities)) {
+                    window.customQuestItems = [...data.unassignedEntities];
+                    renderQuestItems();
+                }
+
+                window.currentMazeJSON = data;
+                window.activeFloorIndex = 0;
+                window.editorUndoStack = [];
+                window.editorRedoStack = [];
+
+                renderCurrentFloor();
+                updateFloorBadge();
+
+                showStatus(`Successfully imported maze JSON! (${data.floors.length} floors loaded)`, true);
+                console.log('Imported Maze JSON successfully!', data);
+            } catch (err) {
+                console.error('Error parsing JSON:', err);
+                showStatus('Error parsing JSON file. Please check file formatting.', false);
+            }
+        };
+
+        reader.readAsText(file);
+    };
+
+    fileInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+            processFile(e.target.files[0]);
+        }
+    });
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropZone.addEventListener(eventName, (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        }, false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+        }, false);
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+        const dt = e.dataTransfer;
+        if (dt.files && dt.files.length > 0) {
+            processFile(dt.files[0]);
+        }
+    });
+}
+
+// 5. Interactive Zoom, Pan, and Fullscreen Viewport Controls
+let zoomLevel = 100;
+let panX = 0;
+let panY = 0;
+
+function initZoomControls() {
+    const zoomText = document.getElementById('zoomPercent');
+    const btnIn = document.getElementById('btnZoomIn');
+    const btnOut = document.getElementById('btnZoomOut');
+    const btnReset = document.getElementById('btnResetZoom');
+    const gridContainer = document.getElementById('gridContainer');
+    const viewportArea = document.getElementById('viewport');
+
+    const updateViewportTransform = () => {
+        if (gridContainer) {
+            gridContainer.style.transform = `translate(${panX}px, ${panY}px) scale(${zoomLevel / 100})`;
+            gridContainer.style.transition = 'transform 0.15s ease-out';
+        }
+        if (zoomText) {
+            zoomText.textContent = `${zoomLevel}%`;
+        }
+    };
+
+    if (btnIn) {
+        btnIn.addEventListener('click', () => {
+            zoomLevel = Math.min(300, zoomLevel + 10);
+            updateViewportTransform();
+        });
+    }
+
+    if (btnOut) {
+        btnOut.addEventListener('click', () => {
+            zoomLevel = Math.max(30, zoomLevel - 10);
+            updateViewportTransform();
+        });
+    }
+
+    if (btnReset) {
+        btnReset.addEventListener('click', () => {
+            zoomLevel = 100;
+            panX = 0;
+            panY = 0;
+            updateViewportTransform();
+        });
+    }
+
+    // Mouse Wheel Zooming over viewport area
+    if (viewportArea) {
+        viewportArea.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            if (e.deltaY < 0) {
+                zoomLevel = Math.min(300, zoomLevel + 10);
+            } else {
+                zoomLevel = Math.max(30, zoomLevel - 10);
+            }
+            updateViewportTransform();
+        }, { passive: false });
+
+        // Mouse Drag Panning (Only when Paint Mode is OFF and Shift key is not held)
+        let isPanning = false;
+        let startX = 0;
+        let startY = 0;
+
+        viewportArea.addEventListener('mousedown', (e) => {
+            if (e.button === 1 || (e.button === 0 && !window.isPaintModeActive && !window.isShiftHeld)) {
+                isPanning = true;
+                startX = e.clientX - panX;
+                startY = e.clientY - panY;
+                viewportArea.style.cursor = 'grabbing';
+            }
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!isPanning) return;
+            panX = e.clientX - startX;
+            panY = e.clientY - startY;
+            if (gridContainer) {
+                gridContainer.style.transform = `translate(${panX}px, ${panY}px) scale(${zoomLevel / 100})`;
+                gridContainer.style.transition = 'none';
+            }
+        });
+
+        window.addEventListener('mouseup', () => {
+            if (isPanning) {
+                isPanning = false;
+                viewportArea.style.cursor = 'grab';
+            }
+        });
+    }
+
+    initEditorUndoRedo();
+    initTilePainter();
+}
+
+// Editor Maze - Tile Painter & History Stack Engine
+window.editorUndoStack = [];
+window.editorRedoStack = [];
+window.activeBrush = '1';
+window.isPaintModeActive = false;
+window.isShiftHeld = false;
+
+function initTilePainter() {
+    const brushCards = document.querySelectorAll('.brush-card');
+    const chkPaintMode = document.getElementById('chkPaintMode');
+    const lblStatus = document.getElementById('lblPaintModeStatus');
+
+    brushCards.forEach(card => {
+        card.addEventListener('click', () => {
+            brushCards.forEach(c => c.classList.remove('active'));
+            card.classList.add('active');
+            window.activeBrush = card.dataset.brush;
+        });
+    });
+
+    if (chkPaintMode) {
+        chkPaintMode.addEventListener('change', () => {
+            window.isPaintModeActive = chkPaintMode.checked;
+            if (lblStatus) {
+                lblStatus.textContent = window.isPaintModeActive 
+                    ? '🎨 Paint Mode: ON (Drag to Paint)' 
+                    : '🎨 Paint Mode: OFF (Drag to Pan)';
+                lblStatus.style.color = window.isPaintModeActive ? '#10b981' : 'var(--text-main)';
+            }
+        });
+    }
+
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'Shift') {
+            window.isShiftHeld = true;
+        }
+    });
+
+    window.addEventListener('keyup', (e) => {
+        if (e.key === 'Shift') {
+            window.isShiftHeld = false;
+        }
+    });
+
+    const viewportArea = document.querySelector('.viewport-area');
+    if (!viewportArea) return;
+
+    let isMouseDown = false;
+
+    viewportArea.addEventListener('mousedown', (e) => {
+        if (e.button === 0 && (window.isPaintModeActive || window.isShiftHeld)) {
+            isMouseDown = true;
+            // Push undo state ONCE at the start of a paint stroke
+            if (window.currentMazeJSON) {
+                window.editorUndoStack.push(JSON.stringify(window.currentMazeJSON));
+                window.editorRedoStack = [];
+            }
+            paintTileAtMouse(e);
+        }
+    });
+
+    viewportArea.addEventListener('mousemove', (e) => {
+        if (isMouseDown && (window.isPaintModeActive || window.isShiftHeld)) {
+            paintTileAtMouse(e);
+        }
     });
 
     window.addEventListener('mouseup', () => {
-        if (isPanning) {
-            isPanning = false;
-            viewArea.style.cursor = 'grab';
-        }
+        isMouseDown = false;
     });
-
-    // ป้องกันเมนูคลิกขวาเด้ง เพื่อให้ใช้คลิกขวาลากจอได้ด้วย
-    viewArea.addEventListener('contextmenu', e => e.preventDefault());
-});
-
-// ตัวช่วยแปลงรหัสบล็อกเป็น Emoji (เพื่อให้ตรงกับแถบ Brush)
-function getCellIcon(val) {
-    if (val === 'START') return '🏁';
-    if (val === 'STAIRS_UP') return '🔼';
-    if (val === 'STAIRS_DOWN') return '🔽';
-    if (val === 'MONSTER') return '🧟';
-    if (val === 'MINI_BOSS') return '👹';
-    if (val === 'BOSS') return '💀';
-    if (val === 'TRAP') return '⚠️';
-    if (val === 'SECRET') return '🎁';
-    return ''; // Wall และ Path ไม่มีข้อความ
 }
 
-window.toggleEditMode = function() {
-    const isEditMode = document.getElementById('editModeToggle').checked;
-    const brushContainer = document.getElementById('brushContainer');
-    if (isEditMode) {
-        brushContainer.style.opacity = '1';
-        brushContainer.style.pointerEvents = 'auto';
-    } else {
-        brushContainer.style.opacity = '0.5';
-        brushContainer.style.pointerEvents = 'none';
-    }
-};
+function paintTileAtMouse(e) {
+    if (!window.currentMazeJSON) return;
+    const canvas = document.querySelector('.viewport-area canvas');
+    if (!canvas) return;
 
-window.generateMaze = function() {
-    let seedInput = document.getElementById('seed').value;
-    if (!seedInput) {
-        seedInput = Math.random().toString(36).substring(2, 10);
-        document.getElementById('seed').value = seedInput; // Show generated Seed
-    }
+    const rect = canvas.getBoundingClientRect();
+    const floorData = window.currentMazeJSON.floors[window.activeFloorIndex];
+    if (!floorData) return;
 
-    const config = {
-        width: parseInt(document.getElementById('width').value),
-        length: parseInt(document.getElementById('length').value),
-        floors: parseInt(document.getElementById('floors').value),
-        pathWidth: parseInt(document.getElementById('pathWidth').value),
-        floorHeight: parseInt(document.getElementById('floorHeight').value),
-        mazeComplexity: parseInt(document.getElementById('mazeComplexity').value),
-        encounterDifficulty: parseInt(document.getElementById('encounterDifficulty').value),
-        startDirection: document.getElementById('startDirection').value,
-        seed: seedInput
-    };
+    const grid = floorData.grid;
+    const rows = grid.length;
+    const cols = grid[0].length;
 
-    try {
-        currentMazeData = generateMultiFloorMaze(config);
-        currentFloorIndex = 0;
-        lastConfig = config;
-        document.getElementById('toggleGuideBtn').disabled = false;
-        document.getElementById('exportJsonBtn').disabled = false;
-        document.getElementById('floorNavigation').style.display = 'flex';
-        
-        // Initialize empty markers container for new mazes
-        currentMazeData.forEach(floor => floor.markers = {});
-        
-        // Calculate and display Minecraft area requirements
-        const actualWidth = currentMazeData[0].grid[0].length;
-        const actualLength = currentMazeData[0].grid.length;
-        const mcWidth = actualWidth * config.pathWidth;
-        const mcLength = actualLength * config.pathWidth;
-        const foundationThickness = 5;
-        const ceilingThickness = 5;
-        const mcTotalHeight = foundationThickness + (config.floors * (config.floorHeight + ceilingThickness));
-        const totalVolume = (mcWidth * mcLength * mcTotalHeight).toLocaleString();
-        document.getElementById('mcSizeInfo').innerText = `Minecraft Area:\n${mcWidth} x ${mcLength} x ${mcTotalHeight} blocks\nTotal Volume: ${totalVolume} blocks`;
+    const cellSize = rect.width / cols;
+    const x = Math.floor((e.clientX - rect.left) / cellSize);
+    const y = Math.floor((e.clientY - rect.top) / cellSize);
 
-        renderMaze();
-    } catch (err) {
-        alert('Error: ' + err.message);
-    }
-};
+    if (x < 0 || x >= cols || y < 0 || y >= rows) return;
 
-window.nextFloor = function() {
-    if (currentMazeData && currentFloorIndex < currentMazeData.length - 1) {
-        currentFloorIndex++;
-        renderMaze();
-    }
-};
+    let brush = window.activeBrush;
+    if (brush === '1') brush = 1;
+    if (brush === '0') brush = 0;
 
-window.prevFloor = function() {
-    if (currentMazeData && currentFloorIndex > 0) {
-        currentFloorIndex--;
-        renderMaze();
-    }
-};
+    if (grid[y][x] === brush) return;
 
-function renderMaze() {
-    const container = document.getElementById('mazeContainer');
-    container.innerHTML = ''; // Clear old content
+    // Condition validations for special single-instance or critical tiles
+    if (brush === 'START') {
+        const confirmPaint = confirm("จุด START มีได้เพียง 1 จุดเท่านั้นในดันเจี้ยน ต้องการย้ายจุด START มายังพิกัดนี้หรือไม่?");
+        if (!confirmPaint) return;
 
-    if (!currentMazeData || currentMazeData.length === 0) return;
-
-    const floor = currentMazeData[currentFloorIndex];
-    document.getElementById('currentFloorLabel').innerText = `Floor ${floor.floorNumber} / ${currentMazeData.length}`;
-
-    const floorDiv = document.createElement('div');
-    floorDiv.className = 'maze-floor';
-
-    const gridDiv = document.createElement('div');
-    gridDiv.className = 'maze-grid';
-    gridDiv.style.gridTemplateColumns = `repeat(${floor.grid[0].length}, 30px)`;
-
-    // Draw each cell
-    for (let y = 0; y < floor.grid.length; y++) {
-        for (let x = 0; x < floor.grid[y].length; x++) {
-            const cellVal = floor.grid[y][x];
-            const cellDiv = document.createElement('div');
-            cellDiv.className = 'cell';
-            cellDiv.id = `cell-${floor.floorNumber}-${x}-${y}`;
-            
-            // ระบบ Edit Mode: คลิกและลากระบาย
-            cellDiv.onmousedown = (e) => { 
-                const isEditMode = document.getElementById('editModeToggle')?.checked;
-                if (!isEditMode) return;
-                if (window.isSpaceDown || e.button !== 0) return;
-                e.preventDefault(); 
-                updateCell(x, y); 
-            };
-            cellDiv.onmouseenter = (e) => { 
-                const isEditMode = document.getElementById('editModeToggle')?.checked;
-                if (!isEditMode) return;
-                if (window.isSpaceDown) return;
-                if (isDrawing && e.buttons === 1) updateCell(x, y); 
-            };
-
-            // Room Inspector - Triggered by Double-Click or Right-Click
-            cellDiv.ondblclick = (e) => {
-                e.preventDefault();
-                window.openInspector(currentFloorIndex, x, y, cellVal);
-            };
-            cellDiv.oncontextmenu = (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                window.openInspector(currentFloorIndex, x, y, cellVal);
-            };
-
-            // Add Class and Symbol according to data
-            if (cellVal === 0) cellDiv.classList.add('wall');
-            else if (cellVal === 'START') cellDiv.classList.add('start');
-            else if (cellVal === 'STAIRS_UP') cellDiv.classList.add('stairs_up');
-            else if (cellVal === 'STAIRS_DOWN') cellDiv.classList.add('stairs_down');
-            else if (cellVal === 'MONSTER') cellDiv.classList.add('monster');
-            else if (cellVal === 'MINI_BOSS') cellDiv.classList.add('mini_boss');
-            else if (cellVal === 'BOSS') cellDiv.classList.add('boss');
-            else if (cellVal === 'TRAP') cellDiv.classList.add('trap');
-            else if (cellVal === 'SECRET') cellDiv.classList.add('secret');
-
-            // Draw visual indicator if the room has custom markers
-            if (floor.markers && floor.markers[`${x},${y}`] && floor.markers[`${x},${y}`].length > 0) {
-                cellDiv.classList.add('has-marker');
+        // Clear existing START tiles across all floors
+        window.currentMazeJSON.floors.forEach(f => {
+            for (let r = 0; r < f.grid.length; r++) {
+                for (let c = 0; c < f.grid[0].length; c++) {
+                    if (f.grid[r][c] === 'START') f.grid[r][c] = 1;
+                }
             }
-
-            cellDiv.innerText = getCellIcon(cellVal);
-            gridDiv.appendChild(cellDiv);
-        }
+        });
+    } else if (brush === 'BOSS') {
+        const confirmPaint = confirm("ต้องการวางตำแหน่ง BOSS ที่พิกัดนี้หรือไม่?");
+        if (!confirmPaint) return;
+    } else if (brush === 'MINI_BOSS') {
+        const confirmPaint = confirm("ต้องการวางตำแหน่ง MINI_BOSS ที่พิกัดนี้หรือไม่?");
+        if (!confirmPaint) return;
+    } else if (brush === 'STAIRS_UP' || brush === 'STAIRS_DOWN') {
+        const confirmPaint = confirm(`ต้องการวางจุดบันได ${brush === 'STAIRS_UP' ? 'ขึ้น' : 'ลง'} ที่พิกัดนี้หรือไม่?`);
+        if (!confirmPaint) return;
     }
 
-    floorDiv.appendChild(gridDiv);
-    container.appendChild(floorDiv);
+    // Apply painted tile to current floor grid
+    grid[y][x] = brush;
 
-    // Draw guide path immediately if visible
-    if (isGuideVisible) applyGuideToCurrentFloor();
+    // Dynamically recalculate Guide Path for updated floor grid
+    recalculateGuidePath(floorData);
+
+    renderCurrentFloor();
 }
 
-window.updateCell = function(x, y) {
-    if (!currentMazeData) return;
-    const brush = document.getElementById('brushSelect').value;
-    const floor = currentMazeData[currentFloorIndex];
-    
-    // แปลงค่าจาก string เป็นรูปแบบที่ระบบใช้ (0 และ 1 เป็น number นอกนั้นเป็น string)
-    let val = brush === '0' ? 0 : (brush === '1' ? 1 : brush);
-    
-    // อัปเดตข้อมูลใน Data Grid
-    floor.grid[y][x] = val;
-    
-    // อัปเดตแค่ UI ของช่องนั้น (เพื่อให้ไวที่สุด โดยไม่ต้อง render ใหม่ทั้งหน้า)
-    const cellDiv = document.getElementById(`cell-${floor.floorNumber}-${x}-${y}`);
-    if (cellDiv) {
-        cellDiv.className = 'cell'; // เคลียร์ Class เก่าทิ้ง
-        cellDiv.innerText = '';
-        
-        if (val === 0) cellDiv.classList.add('wall');
-        else if (val === 'START') cellDiv.classList.add('start');
-        else if (val === 'STAIRS_UP') cellDiv.classList.add('stairs_up');
-        else if (val === 'STAIRS_DOWN') cellDiv.classList.add('stairs_down');
-        else if (val === 'MONSTER') cellDiv.classList.add('monster');
-        else if (val === 'MINI_BOSS') cellDiv.classList.add('mini_boss');
-        else if (val === 'BOSS') cellDiv.classList.add('boss');
-        else if (val === 'TRAP') cellDiv.classList.add('trap');
-        else if (val === 'SECRET') cellDiv.classList.add('secret');
-        
-        // Add marker dot back if it has markers configured
-        if (floor.markers && floor.markers[`${x},${y}`] && floor.markers[`${x},${y}`].length > 0) {
-            cellDiv.classList.add('has-marker');
-        }
-        
-        cellDiv.innerText = getCellIcon(val);
-        
-        // ถ้ากดแก้ไขช่องใดๆ ให้ดึง class guide-path ออกเพื่อป้องกันสีทับซ้อน
-        cellDiv.classList.remove('guide-path');
-    }
-};
-
-window.toggleGuide = function() {
-    isGuideVisible = !isGuideVisible;
-    
-    if (currentMazeData && isGuideVisible) {
-        const floor = currentMazeData[currentFloorIndex];
-        if (!floor.guidePath || floor.guidePath.length === 0) {
-            alert('Warning: ไม่พบข้อมูลเส้นทาง Guide ในไฟล์นำเข้านี้ (ระบบไม่สามารถคำนวณเส้นทางใหม่ได้)');
+function executeUndo() {
+    if (window.editorUndoStack.length > 0) {
+        const previousState = window.editorUndoStack.pop();
+        if (window.currentMazeJSON) {
+            window.editorRedoStack.push(JSON.stringify(window.currentMazeJSON));
+            window.currentMazeJSON = JSON.parse(previousState);
+            renderCurrentFloor();
+            console.log('Undo executed successfully');
         }
     }
-    
-    applyGuideToCurrentFloor();
-};
+}
 
-function applyGuideToCurrentFloor() {
-    if (!currentMazeData) return;
-    const floor = currentMazeData[currentFloorIndex];
-    
-    floor.guidePath.forEach(point => {
-        const cell = document.getElementById(`cell-${floor.floorNumber}-${point.x}-${point.y}`);
-        if (cell && !cell.classList.contains('wall') && !cell.classList.contains('start') && !cell.classList.contains('stairs_up') && !cell.classList.contains('stairs_down') && !cell.classList.contains('boss')) {
-            if (isGuideVisible) {
-                cell.classList.add('guide-path');
+function executeRedo() {
+    if (window.editorRedoStack.length > 0) {
+        const nextState = window.editorRedoStack.pop();
+        if (window.currentMazeJSON) {
+            window.editorUndoStack.push(JSON.stringify(window.currentMazeJSON));
+            window.currentMazeJSON = JSON.parse(nextState);
+            renderCurrentFloor();
+            console.log('Redo executed successfully');
+        }
+    }
+}
+
+function initEditorUndoRedo() {
+    const btnUndo = document.getElementById('btnUndo');
+    const btnRedo = document.getElementById('btnRedo');
+
+    if (btnUndo) btnUndo.addEventListener('click', executeUndo);
+    if (btnRedo) btnRedo.addEventListener('click', executeRedo);
+
+    // Keyboard Shortcuts: Ctrl+Z (Undo) and Ctrl+Y / Ctrl+Shift+Z (Redo)
+    window.addEventListener('keydown', (e) => {
+        const activeTag = document.activeElement ? document.activeElement.tagName.toLowerCase() : '';
+        if (activeTag === 'input' || activeTag === 'textarea' || activeTag === 'select') {
+            return; // Ignore shortcuts while user is typing inside form inputs
+        }
+
+        const isZ = (e.code === 'KeyZ') || (e.key && e.key.toLowerCase() === 'z') || e.key === 'ผ';
+        const isY = (e.code === 'KeyY') || (e.key && e.key.toLowerCase() === 'y') || e.key === 'ั';
+
+        if ((e.ctrlKey || e.metaKey) && isZ) {
+            if (e.shiftKey) {
+                e.preventDefault();
+                executeRedo();
             } else {
-                cell.classList.remove('guide-path');
+                e.preventDefault();
+                executeUndo();
             }
+        } else if ((e.ctrlKey || e.metaKey) && isY) {
+            e.preventDefault();
+            executeRedo();
         }
     });
-}
-
-// --- Room Inspector & Dynamic Arrays System ---
-window.openInspector = function(fIndex, x, y, cellVal) {
-    if (cellVal === 0) return; // Don't inspect walls
-    inspectedCell = { fIndex, x, y, cellVal };
-    const floor = currentMazeData[fIndex];
-    if (!floor.markers) floor.markers = {};
-    
-    // Clone the markers array for safe editing
-    currentMarkers = JSON.parse(JSON.stringify(floor.markers[`${x},${y}`] || []));
-    
-    document.getElementById('inspectorCoords').innerText = `X: ${x}, Y: ${y} (Floor ${fIndex + 1})`;
-    document.getElementById('inspectorType').innerText = getCellIcon(cellVal) + " " + cellVal;
-    
-    window.renderMarkersUI();
-    document.getElementById('inspectorModal').style.display = 'flex';
-};
-
-window.closeInspector = function() {
-    document.getElementById('inspectorModal').style.display = 'none';
-    inspectedCell = null;
-};
-
-window.saveInspector = function() {
-    if (!inspectedCell) return;
-    const floor = currentMazeData[inspectedCell.fIndex];
-    const cellKey = `${inspectedCell.x},${inspectedCell.y}`;
-    const cellDiv = document.getElementById(`cell-${floor.floorNumber}-${inspectedCell.x}-${inspectedCell.y}`);
-    
-    if (currentMarkers.length > 0) {
-        floor.markers[cellKey] = JSON.parse(JSON.stringify(currentMarkers));
-        if (cellDiv) cellDiv.classList.add('has-marker');
-    } else {
-        delete floor.markers[cellKey];
-        if (cellDiv) cellDiv.classList.remove('has-marker');
-    }
-    window.closeInspector();
-};
-
-window.renderMarkersUI = function() {
-    const container = document.getElementById('markersContainer');
-    container.innerHTML = '';
-    if (currentMarkers.length === 0) {
-        container.innerHTML = '<p style="font-size:12px; color:#888;">No markers set for this room.</p>';
-        return;
-    }
-
-    currentMarkers.forEach((marker, index) => {
-        const div = document.createElement('div');
-        div.className = 'dynamic-list-item';
-        
-        let currentVal = '';
-        let placeholder = '';
-        if (marker.type === 'DOOR') { currentVal = marker.lock_id || ''; placeholder = 'lock_id (e.g. boss_key)'; }
-        else if (marker.type === 'SPAWNER') { currentVal = marker.mob_id || ''; placeholder = 'mob_id'; }
-        else if (marker.type === 'CHEST') { currentVal = marker.loot_table || ''; placeholder = 'loot_table'; }
-        else if (marker.type === 'TRAP') { currentVal = marker.trap_id || ''; placeholder = 'trap_id'; }
-        
-        div.innerHTML = `
-            <select style="width:110px" onchange="window.updateMarkerType(${index}, this.value)">
-                <option value="DOOR" ${marker.type === 'DOOR' ? 'selected' : ''}>🚪 DOOR</option>
-                <option value="SPAWNER" ${marker.type === 'SPAWNER' ? 'selected' : ''}>🧟 SPAWNER</option>
-                <option value="CHEST" ${marker.type === 'CHEST' ? 'selected' : ''}>📦 CHEST</option>
-                <option value="TRAP" ${marker.type === 'TRAP' ? 'selected' : ''}>⚠️ TRAP</option>
-            </select>
-            <input type="text" placeholder="${placeholder}" value="${currentVal}" onchange="window.updateMarkerValue(${index}, this.value)">
-            <button class="btn-danger" style="padding:4px 10px;" onclick="window.removeMarker(${index})">X</button>
-        `;
-        container.appendChild(div);
-    });
-};
-
-window.addMarkerUI = function() { currentMarkers.push({ type: 'DOOR', lock_id: '' }); window.renderMarkersUI(); };
-window.removeMarker = function(index) { currentMarkers.splice(index, 1); window.renderMarkersUI(); };
-window.updateMarkerType = function(index, newType) {
-    currentMarkers[index] = { type: newType }; // Reset payload
-    if (newType === 'DOOR') currentMarkers[index].lock_id = '';
-    else if (newType === 'SPAWNER') currentMarkers[index].mob_id = '';
-    else if (newType === 'CHEST') currentMarkers[index].loot_table = '';
-    else if (newType === 'TRAP') currentMarkers[index].trap_id = '';
-    window.renderMarkersUI();
-};
-window.updateMarkerValue = function(index, value) {
-    const type = currentMarkers[index].type;
-    if (type === 'DOOR') currentMarkers[index].lock_id = value;
-    else if (type === 'SPAWNER') currentMarkers[index].mob_id = value;
-    else if (type === 'CHEST') currentMarkers[index].loot_table = value;
-    else if (type === 'TRAP') currentMarkers[index].trap_id = value;
-};
-
-// Custom Items Global List logic
-window.renderCustomItemsUI = function() {
-    const container = document.getElementById('customItemsContainer');
-    container.innerHTML = '';
-    if (window.customItems.length === 0) {
-        container.innerHTML = '<p style="font-size:12px; color:#888;">No items defined.</p>';
-        return;
-    }
-    window.customItems.forEach((item, index) => {
-        const div = document.createElement('div');
-        div.className = 'dynamic-list-item';
-        div.style.flexWrap = 'wrap';
-        div.innerHTML = `
-            <input type="text" placeholder="ID (e.g. key_1)" value="${item.id}" onchange="window.updateCustomItem(${index}, 'id', this.value)" style="flex: 1 1 40%;">
-            <input type="text" placeholder="Type" value="${item.type}" onchange="window.updateCustomItem(${index}, 'type', this.value)" style="flex: 1 1 40%;">
-            <input type="text" placeholder="Display Name" value="${item.name}" onchange="window.updateCustomItem(${index}, 'name', this.value)" style="flex: 1 1 80%;">
-            <button class="btn-danger" style="padding:4px 8px; flex: 0 0 10%;" onclick="window.removeCustomItem(${index})">X</button>
-        `;
-        container.appendChild(div);
-    });
-};
-window.addCustomItemUI = function() { window.customItems.push({ id: '', type: 'KEY', name: '' }); window.renderCustomItemsUI(); };
-window.removeCustomItem = function(index) { window.customItems.splice(index, 1); window.renderCustomItemsUI(); };
-window.updateCustomItem = function(index, field, value) { window.customItems[index][field] = value; };
-
-// --- JSON Export System ---
-function getCellLabel(x, y) {
-    // Convert X axis to Letter (A, B... Z, AA) and Y to number starting from 1
-    let colName = '';
-    let tempX = x;
-    while (tempX >= 0) {
-        colName = String.fromCharCode((tempX % 26) + 65) + colName;
-        tempX = Math.floor(tempX / 26) - 1;
-    }
-    return `${colName}${y + 1}`;
-}
-
-function isPartOfRoom(grid, x, y, width, length) {
-    // Check if cell is part of a 2x2 or larger room
-    const check2x2 = (cx, cy) => {
-        if (cx < 0 || cy < 0 || cx >= width - 1 || cy >= length - 1) return false;
-        return grid[cy][cx] !== 0 && grid[cy][cx+1] !== 0 &&
-               grid[cy+1][cx] !== 0 && grid[cy+1][cx+1] !== 0;
-    };
-    return check2x2(x, y) || check2x2(x - 1, y) || check2x2(x, y - 1) || check2x2(x - 1, y - 1);
-}
-
-function getPathShape(grid, x, y, width, length) {
-    // Check connections (0 = wall, else path)
-    const n = y > 0 && grid[y - 1][x] !== 0;
-    const s = y < length - 1 && grid[y + 1][x] !== 0;
-    const w = x > 0 && grid[y][x - 1] !== 0;
-    const e = x < width - 1 && grid[y][x + 1] !== 0;
-
-    const connections = (n ? 1 : 0) + (s ? 1 : 0) + (w ? 1 : 0) + (e ? 1 : 0);
-    const cellVal = grid[y][x];
-
-    let shape = 'ISOLATED';
-
-    if (connections === 4) {
-        shape = isPartOfRoom(grid, x, y, width, length) ? 'ROOM' : 'CROSSROAD';
-    }
-    else if (connections === 3) {
-        if (!s) shape = 'T_JUNCTION_N_E_W';
-        else if (!n) shape = 'T_JUNCTION_S_E_W';
-        else if (!w) shape = 'T_JUNCTION_N_S_E';
-        else if (!e) shape = 'T_JUNCTION_N_S_W';
-    }
-    else if (connections === 2) {
-        if (n && s) shape = 'STRAIGHT_N_S';
-        else if (e && w) shape = 'STRAIGHT_E_W';
-        else if (n && e) shape = 'CORNER_N_E';
-        else if (n && w) shape = 'CORNER_N_W';
-        else if (s && e) shape = 'CORNER_S_E';
-        else if (s && w) shape = 'CORNER_S_W';
-    }
-    else if (connections === 1) {
-        if (n) shape = 'DEADEND_N';
-        else if (s) shape = 'DEADEND_S';
-        else if (e) shape = 'DEADEND_E';
-        else if (w) shape = 'DEADEND_W';
-    }
-
-    if (cellVal === 'STAIRS_UP' || cellVal === 'STAIRS_DOWN') {
-        if (connections === 1) {
-            if (n) return `${cellVal}_N`;
-            if (s) return `${cellVal}_S`;
-            if (e) return `${cellVal}_E`;
-            if (w) return `${cellVal}_W`;
-        }
-        return cellVal; 
-    }
-
-    return shape;
-}
-
-window.exportJSON = function() {
-    if (!currentMazeData || !lastConfig) return;
-
-    const actualWidth = currentMazeData[0].grid[0].length;
-    const actualLength = currentMazeData[0].grid.length;
-    const foundationThickness = 5;
-    const ceilingThickness = 5; 
-    const roomHeight = lastConfig.floorHeight;
-    const totalHeight = foundationThickness + (currentMazeData.length * (roomHeight + ceilingThickness));
-
-    const exportData = {
-        metadata: {
-            config: lastConfig,
-            rules: {
-                cooldown_hours: parseInt(document.getElementById('ruleCooldown').value) || 24,
-                min_players: parseInt(document.getElementById('ruleMinP').value) || 1,
-                max_players: parseInt(document.getElementById('ruleMaxP').value) || 4,
-                time_limit_minutes: parseInt(document.getElementById('ruleTime').value) || 60
-            },
-            custom_items: window.customItems,
-            minecraftInfo: {
-                totalWidth: actualWidth * lastConfig.pathWidth,
-                totalLength: actualLength * lastConfig.pathWidth,
-                totalHeight: totalHeight,
-                foundationThickness: foundationThickness,
-                ceilingThickness: ceilingThickness,
-                roomHeight: roomHeight
-            },
-            generatedAt: new Date().toISOString()
-        },
-        floors: []
-    };
-
-    currentMazeData.forEach((floor, floorIndex) => {
-        // Calculate starting Y for the floor (สลับแกน Y ถ้าเริ่มจาก Top)
-        let yIndex = floorIndex;
-        if (lastConfig.startDirection === 'top') {
-            yIndex = currentMazeData.length - 1 - floorIndex;
-        }
-        const startY = foundationThickness + (yIndex * (roomHeight + ceilingThickness));
-        
-        const floorData = {
-            floorNumber: floor.floorNumber,
-            startY: startY,
-            guidePath: floor.guidePath,
-            cells: []
-        };
-
-        for (let y = 0; y < floor.grid.length; y++) {
-            for (let x = 0; x < floor.grid[y].length; x++) {
-                const cellVal = floor.grid[y][x];
-                
-                // Only save paths, ignore walls (0) to save file size
-                if (cellVal !== 0) {
-                    const startX = x * lastConfig.pathWidth;
-                    const startZ = y * lastConfig.pathWidth;
-
-                    floorData.cells.push({
-                        label: getCellLabel(x, y), // เช่น A1, B5
-                        gridCoordinates: { x: x, y: y },
-                        minecraftArea: {
-                            startX: startX,
-                            startY: startY,
-                            startZ: startZ,
-                            endX: startX + lastConfig.pathWidth - 1,
-                            endY: startY + roomHeight - 1,
-                            endZ: startZ + lastConfig.pathWidth - 1,
-                            width: lastConfig.pathWidth,
-                            height: roomHeight,
-                            length: lastConfig.pathWidth
-                        },
-                        type: cellVal === 1 ? 'PATH' : cellVal, // PATH, MONSTER, BOSS, etc.
-                        shape: getPathShape(floor.grid, x, y, actualWidth, actualLength),
-                        markers: floor.markers ? (floor.markers[`${x},${y}`] || []) : []
-                    });
-                }
-            }
-        }
-        exportData.floors.push(floorData);
-    });
-
-    // Convert Object to JSON String
-    const dataStr = JSON.stringify(exportData, null, 2);
-    const blob = new Blob([dataStr], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    
-    // Simulate button click to download
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `maze_seed_${lastConfig.seed}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-};
-
-// --- JSON Import System ---
-window.importJSON = function(event) {
-    const fileInput = event.target;
-    const file = fileInput.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        try {
-            const data = JSON.parse(e.target.result);
-            loadImportedData(data);
-        } catch (err) {
-            alert('Error reading JSON file: ' + err.message);
-        }
-    };
-    reader.readAsText(file);
-    
-    // Reset input to allow selecting the same file again
-    fileInput.value = '';
-};
-
-function loadImportedData(data) {
-    if (!data || !data.metadata || !data.floors || !data.metadata.minecraftInfo) {
-        alert('Invalid or unsupported JSON file format');
-        return;
-    }
-
-    lastConfig = data.metadata.config;
-    const pathWidth = lastConfig ? (lastConfig.pathWidth || 3) : 3;
-    
-    // Calculate original grid width/length
-    const actualWidth = Math.round(data.metadata.minecraftInfo.totalWidth / pathWidth);
-    const actualLength = Math.round(data.metadata.minecraftInfo.totalLength / pathWidth);
-
-    currentMazeData = data.floors.map(floor => {
-        let grid = Array(actualLength).fill().map(() => Array(actualWidth).fill(0));
-        let floorMarkersMap = {};
-        
-        let startPos = null;
-        let endPos = null;
-        
-        if (floor.cells) {
-            floor.cells.forEach(cell => {
-                if (cell.gridCoordinates) {
-                    const x = cell.gridCoordinates.x;
-                    const y = cell.gridCoordinates.y;
-                    if (y >= 0 && y < actualLength && x >= 0 && x < actualWidth) {
-                        grid[y][x] = cell.type === 'PATH' ? 1 : cell.type;
-                        
-                        if (cell.markers && cell.markers.length > 0) {
-                            floorMarkersMap[`${x},${y}`] = cell.markers;
-                        }
-
-                        // ค้นหาพิกัดเริ่มต้นและสิ้นสุด เพื่อสร้างเส้น Guide ใหม่สำหรับไฟล์ JSON รุ่นเก่า
-                        if (cell.type === 'START') {
-                            startPos = { x, y };
-                        } else if (cell.type === 'STAIRS_UP' || cell.type === 'STAIRS_DOWN') {
-                            if (!startPos) startPos = { x, y };
-                            else endPos = { x, y };
-                        } else if (cell.type === 'BOSS' && !endPos) {
-                            endPos = { x, y }; 
-                        }
-                    }
-                }
-            });
-        }
-        
-        let gPath = floor.guidePath;
-        if ((!gPath || gPath.length === 0) && startPos && endPos) {
-            gPath = findShortestPath(grid, startPos, endPos);
-        }
-        
-        return {
-            floorNumber: floor.floorNumber,
-            grid: grid,
-            guidePath: gPath || [],
-            markers: floorMarkersMap
-        };
-    });
-
-    currentFloorIndex = 0;
-    isGuideVisible = false;
-
-    document.getElementById('toggleGuideBtn').disabled = false;
-    document.getElementById('exportJsonBtn').disabled = false;
-    document.getElementById('floorNavigation').style.display = 'flex';
-    
-    // Update UI settings
-    if (lastConfig) {
-        document.getElementById('width').value = lastConfig.width || '';
-        document.getElementById('length').value = lastConfig.length || '';
-        document.getElementById('floors').value = lastConfig.floors || '';
-        document.getElementById('pathWidth').value = lastConfig.pathWidth || '';
-        document.getElementById('floorHeight').value = lastConfig.floorHeight || '';
-        
-        if (lastConfig.mazeComplexity) {
-            document.getElementById('mazeComplexity').value = lastConfig.mazeComplexity;
-            document.getElementById('mazeCompVal').innerText = lastConfig.mazeComplexity;
-        }
-        if (lastConfig.encounterDifficulty) {
-            document.getElementById('encounterDifficulty').value = lastConfig.encounterDifficulty;
-            document.getElementById('encDiffVal').innerText = lastConfig.encounterDifficulty;
-        } else if (lastConfig.difficulty) { // Fallback for old JSON format
-            document.getElementById('encounterDifficulty').value = lastConfig.difficulty;
-            document.getElementById('encDiffVal').innerText = lastConfig.difficulty;
-        }
-        
-        if (lastConfig.startDirection) {
-            document.getElementById('startDirection').value = lastConfig.startDirection;
-        }
-        document.getElementById('seed').value = lastConfig.seed || '';
-    }
-    
-    // Update UI rules & custom items
-    if (data.metadata.rules) {
-        document.getElementById('ruleCooldown').value = data.metadata.rules.cooldown_hours || 24;
-        document.getElementById('ruleMinP').value = data.metadata.rules.min_players || 1;
-        document.getElementById('ruleMaxP').value = data.metadata.rules.max_players || 4;
-        document.getElementById('ruleTime').value = data.metadata.rules.time_limit_minutes || 60;
-    }
-    
-    window.customItems = data.metadata.custom_items || [];
-    window.renderCustomItemsUI();
-
-    const mcTotalHeight = data.metadata.minecraftInfo.totalHeight;
-    const totalVolumeImported = (data.metadata.minecraftInfo.totalWidth * data.metadata.minecraftInfo.totalLength * mcTotalHeight).toLocaleString();
-    document.getElementById('mcSizeInfo').innerText = `Minecraft Area:\n${data.metadata.minecraftInfo.totalWidth} x ${data.metadata.minecraftInfo.totalLength} x ${mcTotalHeight} blocks\nTotal Volume: ${totalVolumeImported} blocks\n(Imported)`;
-
-    renderMaze();
 }
