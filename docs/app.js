@@ -746,6 +746,42 @@ function initLanguageSwitcher() {
     }
 }
 
+function triggerMazeGeneration() {
+    let rawPathWidth = parseInt(document.getElementById('cfgPathWidth')?.value) || 3;
+    if (rawPathWidth % 2 === 0) rawPathWidth++;
+    if (rawPathWidth < 1) rawPathWidth = 1;
+    const pwInput = document.getElementById('cfgPathWidth');
+    if (pwInput) pwInput.value = rawPathWidth;
+
+    const config = {
+        length: parseInt(document.getElementById('cfgLength')?.value) || 25,
+        width: parseInt(document.getElementById('cfgWidth')?.value) || 25,
+        floors: parseInt(document.getElementById('cfgFloors')?.value) || 3,
+        pathWidth: rawPathWidth,
+        floorHeight: parseInt(document.getElementById('cfgFloorHeight')?.value) || 5,
+        foundationHeight: parseInt(document.getElementById('cfgFoundationHeight')?.value) !== undefined && !isNaN(parseInt(document.getElementById('cfgFoundationHeight')?.value)) ? parseInt(document.getElementById('cfgFoundationHeight')?.value) : 5,
+        floorGap: parseInt(document.getElementById('cfgFloorGap')?.value) !== undefined && !isNaN(parseInt(document.getElementById('cfgFloorGap')?.value)) ? parseInt(document.getElementById('cfgFloorGap')?.value) : 5,
+        startDirection: document.getElementById('cfgStartDir')?.value || 'bottom',
+        algorithm: document.getElementById('cfgAlgorithm')?.value || 'dfs',
+        mazeComplexity: parseInt(document.getElementById('cfgMazeComplexity')?.value) || 5,
+        monsterDensity: parseInt(document.getElementById('cfgMonsterDensity')?.value) || 5,
+        miniBossFreq: parseInt(document.getElementById('cfgMiniBossFreq')?.value) || 5,
+        trapDensity: parseInt(document.getElementById('cfgTrapDensity')?.value) || 5,
+        secretFreq: parseInt(document.getElementById('cfgSecretFreq')?.value) || 5,
+        seed: document.getElementById('cfgSeed')?.value || 'Dungeons2026'
+    };
+
+    // Generate multi-floor maze JSON using V2 algorithm engine
+    window.currentMazeJSON = generateMazeV2(config, window.customSpecialRooms, []);
+    window.activeFloorIndex = 0;
+
+    // Render floor onto HTML5 canvas
+    renderCurrentFloor();
+    updateFloorBadge();
+
+    console.log('Maze Generated Successfully!', window.currentMazeJSON);
+}
+
 function applyLanguage(lang) {
     const dictionary = i18n[lang] || i18n.en;
 
@@ -837,36 +873,6 @@ function updateMainActionButtonUI() {
 window.currentMazeJSON = null;
 window.activeFloorIndex = 0;
 window.showGuidePath = false;
-
-function triggerMazeGeneration() {
-    const config = {
-        length: parseInt(document.getElementById('cfgLength')?.value) || 25,
-        width: parseInt(document.getElementById('cfgWidth')?.value) || 25,
-        floors: parseInt(document.getElementById('cfgFloors')?.value) || 3,
-        pathWidth: parseInt(document.getElementById('cfgPathWidth')?.value) || 3,
-        floorHeight: parseInt(document.getElementById('cfgFloorHeight')?.value) || 5,
-        foundationHeight: parseInt(document.getElementById('cfgFoundationHeight')?.value) !== undefined && !isNaN(parseInt(document.getElementById('cfgFoundationHeight')?.value)) ? parseInt(document.getElementById('cfgFoundationHeight')?.value) : 5,
-        floorGap: parseInt(document.getElementById('cfgFloorGap')?.value) !== undefined && !isNaN(parseInt(document.getElementById('cfgFloorGap')?.value)) ? parseInt(document.getElementById('cfgFloorGap')?.value) : 5,
-        startDirection: document.getElementById('cfgStartDir')?.value || 'bottom',
-        algorithm: document.getElementById('cfgAlgorithm')?.value || 'dfs',
-        mazeComplexity: parseInt(document.getElementById('cfgMazeComplexity')?.value) || 5,
-        monsterDensity: parseInt(document.getElementById('cfgMonsterDensity')?.value) || 5,
-        miniBossFreq: parseInt(document.getElementById('cfgMiniBossFreq')?.value) || 5,
-        trapDensity: parseInt(document.getElementById('cfgTrapDensity')?.value) || 5,
-        secretFreq: parseInt(document.getElementById('cfgSecretFreq')?.value) || 5,
-        seed: document.getElementById('cfgSeed')?.value || 'Dungeons2026'
-    };
-
-    // Generate multi-floor maze JSON using V2 algorithm engine
-    window.currentMazeJSON = generateMazeV2(config, window.customSpecialRooms, []);
-    window.activeFloorIndex = 0;
-
-    // Render floor onto HTML5 canvas
-    renderCurrentFloor();
-    updateFloorBadge();
-
-    console.log('Maze Generated Successfully!', window.currentMazeJSON);
-}
 
 function renderCurrentFloor() {
     const container = document.getElementById('gridContainer');

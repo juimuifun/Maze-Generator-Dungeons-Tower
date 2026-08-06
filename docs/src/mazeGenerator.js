@@ -49,6 +49,43 @@ export function calculateMinecraftArea(x, y, floorNum, pathWidth = 3, floorHeigh
     };
 }
 
+// Helper to ensure STAIRS_UP and STAIRS_DOWN have only 1 entrance/exit (single path connection)
+export function enforceSingleEntranceForStairs(grid, width, length, pos, preferredNeighbor = null) {
+    if (!pos || pos.x < 0 || pos.y < 0 || pos.x >= width || pos.y >= length) return;
+
+    const dirs = [
+        { dx: 0, dy: -1 },
+        { dx: 1, dy: 0 },
+        { dx: 0, dy: 1 },
+        { dx: -1, dy: 0 }
+    ];
+
+    const openNeighbors = [];
+    for (const d of dirs) {
+        const nx = pos.x + d.dx;
+        const ny = pos.y + d.dy;
+        if (nx >= 0 && nx < width && ny >= 0 && ny < length && grid[ny][nx] !== 0) {
+            openNeighbors.push({ x: nx, y: ny });
+        }
+    }
+
+    if (openNeighbors.length > 1) {
+        let keep = null;
+        if (preferredNeighbor) {
+            keep = openNeighbors.find(n => n.x === preferredNeighbor.x && n.y === preferredNeighbor.y);
+        }
+        if (!keep) {
+            keep = openNeighbors[0];
+        }
+
+        for (const n of openNeighbors) {
+            if (n.x !== keep.x || n.y !== keep.y) {
+                grid[n.y][n.x] = 0; // Wall off extra openings so stairs tile has only 1 entrance/exit
+            }
+        }
+    }
+}
+
 // Calculate Shape and Direction matching for grid cells (CORNER, STRAIGHT, T_JUNCTION, CROSSROAD, DEAD_END)
 export function calculateTileShape(grid, x, y, width, length) {
     const tileVal = grid[y][x];
@@ -140,6 +177,8 @@ export function generateMazeV2(config, customRooms = [], customItems = []) {
 
     floors = parseInt(floors) || 1;
     pathWidth = parseInt(pathWidth) || 3;
+    if (pathWidth % 2 === 0) pathWidth++;
+    if (pathWidth < 1) pathWidth = 1;
     floorHeight = parseInt(floorHeight) || 5;
     foundationHeight = parseInt(foundationHeight) !== undefined && !isNaN(parseInt(foundationHeight)) ? parseInt(foundationHeight) : 5;
     floorGap = parseInt(floorGap) !== undefined && !isNaN(parseInt(floorGap)) ? parseInt(floorGap) : 5;
@@ -210,6 +249,25 @@ export function generateMazeV2(config, customRooms = [], customItems = []) {
             if (grid[exitPos.y][exitPos.x] === 1) {
                 grid[exitPos.y][exitPos.x] = 'STAIRS_UP';
             }
+        }
+
+        // Enforce STAIRS_UP and STAIRS_DOWN to have ONLY ONE entrance/exit
+        for (let r = 0; r < length; r++) {
+            for (let c = 0; c < width; c++) {
+                const val = grid[r][c];
+                if (val === 'STAIRS_UP' || val === 'STAIRS_DOWN') {
+                    let pref = null;
+                    if (c === startPos.x && r === startPos.y && guidePath.length > 1) {
+                        pref = guidePath[1];
+                    } else if (c === exitPos.x && r === exitPos.y && guidePath.length > 1) {
+                        pref = guidePath[guidePath.length - 2];
+                    }
+                    enforceSingleEntranceForStairs(grid, width, length, { x: c, y: r }, pref);
+                }
+            }
+        }
+
+        if (!isFinalFloor) {
 
             // MiniBoss Cadence Check: Place MiniBoss right before exit stairs ONLY IF no custom MINI_BOSS room was placed on this floor
             const hasCustomMiniBossRoom = placedRooms.some(r => r.type === 'MINI_BOSS');
@@ -687,6 +745,22 @@ export function recalculateGuidePath(floorData) {
 
     const finalPath = targetPath || longestPath;
     floorData.guidePath = finalPath;
+
+    for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+            const val = grid[r][c];
+            if (val === 'STAIRS_UP' || val === 'STAIRS_DOWN') {
+                let pref = null;
+                if (startPos && c === startPos.x && r === startPos.y && finalPath.length > 1) {
+                    pref = finalPath[1];
+                } else if (targetPos && c === targetPos.x && r === targetPos.y && finalPath.length > 1) {
+                    pref = finalPath[finalPath.length - 2];
+                }
+                enforceSingleEntranceForStairs(grid, cols, rows, { x: c, y: r }, pref);
+            }
+        }
+    }
+
     return finalPath;
 }
 
