@@ -732,8 +732,46 @@ window.changeVal = function (id, delta) {
     const min = parseInt(input.min) || 1;
     const max = parseInt(input.max) || 999;
     val = Math.max(min, Math.min(max, val + delta));
+    if (['cfgPathWidth', 'cfgLength', 'cfgWidth'].includes(id) && val % 2 === 0) {
+        val += (delta < 0 ? -1 : 1);
+    }
+    if (val < min) val = (min % 2 === 0) ? min + 1 : min;
     input.value = val;
 };
+
+// Automatically adjust manually typed even inputs to odd numbers (for PathWidth, Rows, Cols)
+function initOddInputEnforcement() {
+    const oddInputIds = ['cfgPathWidth', 'cfgLength', 'cfgWidth'];
+    oddInputIds.forEach(id => {
+        const input = document.getElementById(id);
+        if (!input) return;
+
+        const validateAndFix = () => {
+            let val = parseInt(input.value);
+            const min = parseInt(input.min) || 1;
+            const max = parseInt(input.max) || 999;
+
+            if (isNaN(val) || val < min) val = min;
+            if (val > max) val = max;
+
+            if (val % 2 === 0) {
+                val = (val + 1 <= max) ? val + 1 : val - 1;
+            }
+            if (val < min) val = (min % 2 === 0) ? min + 1 : min;
+
+            input.value = val;
+        };
+
+        input.addEventListener('change', validateAndFix);
+        input.addEventListener('blur', validateAndFix);
+    });
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initOddInputEnforcement);
+} else {
+    initOddInputEnforcement();
+}
 
 // Language Switcher Logic
 function initLanguageSwitcher() {
@@ -753,9 +791,19 @@ function triggerMazeGeneration() {
     const pwInput = document.getElementById('cfgPathWidth');
     if (pwInput) pwInput.value = rawPathWidth;
 
+    let rawLength = parseInt(document.getElementById('cfgLength')?.value) || 25;
+    if (rawLength % 2 === 0) rawLength++;
+    const lenInput = document.getElementById('cfgLength');
+    if (lenInput) lenInput.value = rawLength;
+
+    let rawWidth = parseInt(document.getElementById('cfgWidth')?.value) || 25;
+    if (rawWidth % 2 === 0) rawWidth++;
+    const widthInput = document.getElementById('cfgWidth');
+    if (widthInput) widthInput.value = rawWidth;
+
     const config = {
-        length: parseInt(document.getElementById('cfgLength')?.value) || 25,
-        width: parseInt(document.getElementById('cfgWidth')?.value) || 25,
+        length: rawLength,
+        width: rawWidth,
         floors: parseInt(document.getElementById('cfgFloors')?.value) || 3,
         pathWidth: rawPathWidth,
         floorHeight: parseInt(document.getElementById('cfgFloorHeight')?.value) || 5,
