@@ -350,6 +350,26 @@ body {
     box-sizing: border-box;
 }
 
+/* Custom Sleek Scrollbar */
+.panel-inner::-webkit-scrollbar {
+    width: 6px;
+}
+
+.panel-inner::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.15);
+    border-radius: 4px;
+}
+
+.panel-inner::-webkit-scrollbar-thumb {
+    background: rgba(99, 102, 241, 0.35);
+    border-radius: 4px;
+    transition: background 0.2s;
+}
+
+.panel-inner::-webkit-scrollbar-thumb:hover {
+    background: var(--primary);
+}
+
 .panel-header {
     display: flex;
     align-items: center;

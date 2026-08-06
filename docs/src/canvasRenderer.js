@@ -9,11 +9,11 @@ const TILE_COLORS = {
     'STAIRS_DOWN': '#6366f1',// Stairs Down (Indigo)
     'BOSS': '#ef4444',       // Boss Chamber (Solid Crimson Red)
     'MINI_BOSS': '#f97316',  // MiniBoss Arena (Solid Vibrant Orange)
-    'TREASURE': '#eab308',   // Treasure Vault (Solid Gold Yellow)
-    'PUZZLE': '#a855f7',     // Puzzle Room (Solid Purple)
+    'TRAP': '#eab308',      // Trap Room (Solid Warning Yellow)
+    'SECRET': '#06b6d4',    // Secret Room (Solid Cyan)
+    'TREASURE': '#06b6d4',   // Legacy Treasure
+    'PUZZLE': '#eab308',     // Legacy Puzzle
     'MONSTER': '#a855f7',   // Monster Spawn (Purple)
-    'TRAP': '#eab308',      // Trap / Hazard (Warning Yellow)
-    'SECRET': '#06b6d4',    // Secret Chest (Cyan)
     'DOOR': '#84cc16',      // Locked Door (Lime Green)
     'QUEST_ITEM': '#ec4899',// Key / Quest Item (Pink)
     'SHOP': '#14b8a6',      // Merchant Shop NPC (Teal)
@@ -27,11 +27,11 @@ const TILE_EMOJIS = {
     'STAIRS_DOWN': '⬇️',
     'BOSS': '👑',
     'MINI_BOSS': '👹',
-    'TREASURE': '💎',
-    'PUZZLE': '🧩',
-    'MONSTER': '🧟',
     'TRAP': '💣',
     'SECRET': '💎',
+    'TREASURE': '💎',
+    'PUZZLE': '💣',
+    'MONSTER': '🧟',
     'DOOR': '🚪',
     'QUEST_ITEM': '🔑',
     'SHOP': '🛒',
@@ -43,6 +43,8 @@ const ROOM_STROKES = {
     'BOSS': 'rgba(255, 255, 255, 0.7)',
     'MINI_BOSS': 'rgba(255, 255, 255, 0.7)',
     'START': 'rgba(255, 255, 255, 0.7)',
+    'TRAP': 'rgba(255, 255, 255, 0.7)',
+    'SECRET': 'rgba(255, 255, 255, 0.7)',
     'TREASURE': 'rgba(255, 255, 255, 0.7)',
     'PUZZLE': 'rgba(255, 255, 255, 0.7)'
 };

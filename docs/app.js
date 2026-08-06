@@ -23,6 +23,8 @@ const i18n = {
         lbl_floors: "Floors Count",
         lbl_path_width: "Path Width (Blocks)",
         lbl_floor_height: "Floor Height (Blocks)",
+        lbl_foundation_height: "Foundation Height (Blocks)",
+        lbl_floor_gap: "Floor Gap / Ceiling (Blocks)",
         lbl_start_direction: "Start Direction",
         lbl_start_dir: "Start Direction",
         dir_bottom: "Bottom ➔ Top (Floor 1 Entrance)",
@@ -222,18 +224,19 @@ function initBrushSelector() {
 window.customSpecialRooms = [];
 
 function initSpecialRoomsBuilder() {
-    const btnAdd = document.getElementById('btnAddSpecialRoom');
+    const btnAdd = document.getElementById('btnAddRoom');
     if (btnAdd) {
         btnAdd.addEventListener('click', () => {
             const newId = 'room-' + Date.now();
             window.customSpecialRooms.forEach(r => r.expanded = false);
             window.customSpecialRooms.push({
                 id: newId,
-                name: 'Treasure Vault',
-                type: 'TREASURE',
+                name: '',
+                type: 'SECRET',
                 width: 3,
                 height: 3,
-                floorRule: 'all',
+                floorMode: 'all', // 'all', 'planned', 'custom'
+                targetFloors: [1], // Used when floorMode is 'custom'
                 expanded: true
             });
             renderSpecialRooms();
@@ -261,7 +264,7 @@ function renderSpecialRooms() {
     const totalFloors = parseInt(document.getElementById('cfgFloors')?.value) || 3;
 
     // Dynamically update floor filter options based on cfgFloors
-    if (filterFloorSelect) {
+    if (filterFloorSelect && filterFloorSelect.options.length <= 1) {
         const currentSelected = filterFloorSelect.value || 'all';
         let floorFilterHTML = '<option value="all">🏢 All Floors</option>';
         for (let f = 1; f <= totalFloors; f++) {
@@ -269,7 +272,6 @@ function renderSpecialRooms() {
             const tag = f === 1 ? ' (First)' : (f === totalFloors ? ' (Final)' : '');
             floorFilterHTML += `<option value="${val}" ${currentSelected === val ? 'selected' : ''}>🏢 Floor ${f}${tag}</option>`;
         }
-        floorFilterHTML += '<option value="all" data-i18n="rule_all">All Floors</option>';
         floorFilterHTML += '<option value="odd" data-i18n="rule_odd">Odd Floors</option>';
         floorFilterHTML += '<option value="even">Even Floors</option>';
         filterFloorSelect.innerHTML = floorFilterHTML;
@@ -284,14 +286,25 @@ function renderSpecialRooms() {
         BOSS: '👑',
         START: '🏁',
         MINI_BOSS: '👹',
-        TREASURE: '💎',
-        PUZZLE: '🧩'
+        TRAP: '💣',
+        SECRET: '💎'
     };
 
     // Filter room list by active floor & room type filters
     const filteredRooms = window.customSpecialRooms.filter(room => {
         const matchType = (selectedType === 'all' || room.type === selectedType);
-        const matchFloor = (selectedFloor === 'all' || room.floorRule === 'all' || room.floorRule === selectedFloor);
+        let matchFloor = true;
+        if (selectedFloor !== 'all') {
+            if (room.floorMode === 'custom' && Array.isArray(room.targetFloors)) {
+                let fNum = 1;
+                if (selectedFloor === 'first') fNum = 1;
+                else if (selectedFloor === 'final') fNum = totalFloors;
+                else if (selectedFloor.startsWith('floor-')) fNum = parseInt(selectedFloor.replace('floor-', '')) || 1;
+                matchFloor = room.targetFloors.includes(fNum);
+            } else if (room.floorRule) {
+                matchFloor = (room.floorRule === 'all' || room.floorRule === selectedFloor);
+            }
+        }
         return matchType && matchFloor;
     });
 
@@ -301,19 +314,38 @@ function renderSpecialRooms() {
     }
 
     filteredRooms.forEach((room) => {
-        // Build dynamic floor options based on cfgFloors count
-        let floorOptionsHTML = '';
-        for (let f = 1; f <= totalFloors; f++) {
-            const val = f === totalFloors ? 'final' : (f === 1 ? 'first' : `floor-${f}`);
-            const isSelected = room.floorRule === val || room.floorRule === `floor-${f}`;
-            const floorTag = f === 1 ? ' (First)' : (f === totalFloors ? ' (Final)' : '');
-            floorOptionsHTML += `<option value="${val}" ${isSelected ? 'selected' : ''}>🏢 Floor ${f}${floorTag}</option>`;
-        }
-        floorOptionsHTML += `<option value="all" ${room.floorRule === 'all' ? 'selected' : ''} data-i18n="rule_all">All Floors</option>`;
-        floorOptionsHTML += `<option value="odd" ${room.floorRule === 'odd' ? 'selected' : ''} data-i18n="rule_odd">Odd Floors</option>`;
-        floorOptionsHTML += `<option value="even" ${room.floorRule === 'even' ? 'selected' : ''}>Even Floors</option>`;
-
         const displayName = room.name ? `${room.name} (${room.width}x${room.height})` : `${room.type} Room (${room.width}x${room.height})`;
+
+        const floorMode = room.floorMode || 'custom';
+        const targetFloors = Array.isArray(room.targetFloors) && room.targetFloors.length > 0 ? room.targetFloors : [1];
+
+        // Build floor pills HTML for Custom Mode
+        let floorPillsHTML = '';
+        if (floorMode === 'custom') {
+            targetFloors.forEach((fNum, idx) => {
+                let optionsHTML = '';
+                for (let f = 1; f <= totalFloors; f++) {
+                    const tag = f === 1 ? ' (First)' : (f === totalFloors ? ' (Final)' : '');
+                    optionsHTML += `<option value="${f}" ${fNum === f ? 'selected' : ''}>🏢 Floor ${f}${tag}</option>`;
+                }
+
+                floorPillsHTML += `
+                    <div class="floor-select-row" style="display: flex; align-items: center; gap: 0.35rem; margin-top: 0.35rem;">
+                        <select style="flex: 1;" onchange="updateRoomTargetFloor('${room.id}', ${idx}, this.value)">
+                            ${optionsHTML}
+                        </select>
+                        ${targetFloors.length > 1 ? `
+                            <button class="btn-delete-room" onclick="removeRoomTargetFloor('${room.id}', ${idx})" title="Remove Floor"><i class="fa-solid fa-xmark"></i></button>
+                        ` : ''}
+                    </div>
+                `;
+            });
+            floorPillsHTML += `
+                <button class="btn btn-outline-sm full-width" style="margin-top: 0.5rem; font-size: 0.72rem;" onclick="addRoomTargetFloor('${room.id}')">
+                    <i class="fa-solid fa-plus"></i> เพิ่มชั้นเป้าหมาย
+                </button>
+            `;
+        }
 
         const card = document.createElement('div');
         card.className = `room-card ${room.expanded ? 'expanded' : ''}`;
@@ -341,8 +373,8 @@ function renderSpecialRooms() {
                         <option value="BOSS" ${room.type === 'BOSS' ? 'selected' : ''}>👑 Boss Room</option>
                         <option value="START" ${room.type === 'START' ? 'selected' : ''}>🏁 Start Room</option>
                         <option value="MINI_BOSS" ${room.type === 'MINI_BOSS' ? 'selected' : ''}>👹 MiniBoss Room</option>
-                        <option value="TREASURE" ${room.type === 'TREASURE' ? 'selected' : ''}>💎 Treasure Room</option>
-                        <option value="PUZZLE" ${room.type === 'PUZZLE' ? 'selected' : ''}>🧩 Puzzle Room</option>
+                        <option value="TRAP" ${room.type === 'TRAP' ? 'selected' : ''}>💣 Trap Room</option>
+                        <option value="SECRET" ${room.type === 'SECRET' ? 'selected' : ''}>💎 Secret Room</option>
                     </select>
                 </div>
 
@@ -366,11 +398,20 @@ function renderSpecialRooms() {
                 </div>
 
                 <div class="form-group">
-                    <label data-i18n="lbl_floor_rule">Target Floor</label>
-                    <select onchange="updateSpecialRoom('${room.id}', 'floorRule', this.value)">
-                        ${floorOptionsHTML}
+                    <label data-i18n="lbl_floor_rule">Target Floor Mode</label>
+                    <select onchange="updateSpecialRoom('${room.id}', 'floorMode', this.value)">
+                        <option value="custom" ${floorMode === 'custom' ? 'selected' : ''}>🎯 ระบุชั้นเอง (Custom Floors)</option>
+                        <option value="planned" ${floorMode === 'planned' ? 'selected' : ''}>📋 วางแผนไว้แต่แรก (ตามประเภทห้อง)</option>
+                        <option value="all" ${floorMode === 'all' ? 'selected' : ''}>🌐 เกิดทุกชั้น (All Floors)</option>
                     </select>
                 </div>
+
+                ${floorMode === 'custom' ? `
+                    <div class="form-group" style="background: rgba(0, 0, 0, 0.15); padding: 0.5rem; border-radius: 6px; border: 1px solid var(--border-color);">
+                        <label style="font-size: 0.72rem;">ระบุชั้นที่ต้องการ:</label>
+                        ${floorPillsHTML}
+                    </div>
+                ` : ''}
             </div>
         `;
         container.appendChild(card);
@@ -378,6 +419,33 @@ function renderSpecialRooms() {
 
     applyLanguage(currentLang);
 }
+
+window.updateRoomTargetFloor = function(id, index, val) {
+    const room = window.customSpecialRooms.find(r => r.id === id);
+    if (room) {
+        if (!Array.isArray(room.targetFloors)) room.targetFloors = [1];
+        room.targetFloors[index] = parseInt(val) || 1;
+        renderSpecialRooms();
+    }
+};
+
+window.addRoomTargetFloor = function(id) {
+    const room = window.customSpecialRooms.find(r => r.id === id);
+    if (room) {
+        if (!Array.isArray(room.targetFloors)) room.targetFloors = [1];
+        const nextFloor = Math.min(parseInt(document.getElementById('cfgFloors')?.value) || 10, room.targetFloors[room.targetFloors.length - 1] + 1);
+        room.targetFloors.push(nextFloor);
+        renderSpecialRooms();
+    }
+};
+
+window.removeRoomTargetFloor = function(id, index) {
+    const room = window.customSpecialRooms.find(r => r.id === id);
+    if (room && Array.isArray(room.targetFloors) && room.targetFloors.length > 1) {
+        room.targetFloors.splice(index, 1);
+        renderSpecialRooms();
+    }
+};
 
 window.updateSpecialRoomName = function (id, nameValue) {
     const room = window.customSpecialRooms.find(r => r.id === id);
@@ -777,6 +845,8 @@ function triggerMazeGeneration() {
         floors: parseInt(document.getElementById('cfgFloors')?.value) || 3,
         pathWidth: parseInt(document.getElementById('cfgPathWidth')?.value) || 3,
         floorHeight: parseInt(document.getElementById('cfgFloorHeight')?.value) || 5,
+        foundationHeight: parseInt(document.getElementById('cfgFoundationHeight')?.value) !== undefined && !isNaN(parseInt(document.getElementById('cfgFoundationHeight')?.value)) ? parseInt(document.getElementById('cfgFoundationHeight')?.value) : 5,
+        floorGap: parseInt(document.getElementById('cfgFloorGap')?.value) !== undefined && !isNaN(parseInt(document.getElementById('cfgFloorGap')?.value)) ? parseInt(document.getElementById('cfgFloorGap')?.value) : 5,
         startDirection: document.getElementById('cfgStartDir')?.value || 'bottom',
         algorithm: document.getElementById('cfgAlgorithm')?.value || 'dfs',
         mazeComplexity: parseInt(document.getElementById('cfgMazeComplexity')?.value) || 5,
@@ -788,27 +858,8 @@ function triggerMazeGeneration() {
     };
 
     // Generate multi-floor maze JSON using V2 algorithm engine
-    window.currentMazeJSON = generateMazeV2(config, window.customSpecialRooms, window.customQuestItems);
+    window.currentMazeJSON = generateMazeV2(config, window.customSpecialRooms, []);
     window.activeFloorIndex = 0;
-
-    // Sync auto-generated door keys back into customQuestItems UI list
-    const mazeData = getMazeData(window.currentMazeJSON);
-    if (mazeData && mazeData.unassignedEntities) {
-        mazeData.unassignedEntities.forEach(k => {
-            if (!window.customQuestItems.some(item => item.keyId === k.keyId)) {
-                window.customQuestItems.push({
-                    id: k.id,
-                    name: k.name,
-                    keyId: k.keyId,
-                    mode: k.mode || 'auto',
-                    lockedRoomId: k.targetRoomId || '',
-                    floorRule: k.floorRule || 'all',
-                    expanded: false
-                });
-            }
-        });
-        renderQuestItems();
-    }
 
     // Render floor onto HTML5 canvas
     renderCurrentFloor();
@@ -824,6 +875,7 @@ function renderCurrentFloor() {
 
     const floorData = mazeData.floors[window.activeFloorIndex];
     renderFloorCanvas(container, floorData, window.showGuidePath);
+    initCanvasPaintListeners();
 }
 
 function updateFloorBadge() {
@@ -894,6 +946,8 @@ function initNavigationTabs() {
                     content.classList.remove('active');
                 }
             });
+
+
 
             // If panel was collapsed, open it
             if (optionsPanel && optionsPanel.classList.contains('collapsed')) {
@@ -1060,6 +1114,8 @@ function initImportJSON() {
                         setVal('cfgFloors', mazeData.settings.dimensions.floors);
                         setVal('cfgPathWidth', mazeData.settings.dimensions.pathWidth);
                         setVal('cfgFloorHeight', mazeData.settings.dimensions.floorHeight);
+                        setVal('cfgFoundationHeight', mazeData.settings.dimensions.foundationHeight !== undefined ? mazeData.settings.dimensions.foundationHeight : 5);
+                        setVal('cfgFloorGap', mazeData.settings.dimensions.floorGap !== undefined ? mazeData.settings.dimensions.floorGap : 5);
                     }
                     if (mazeData.settings.algorithm) {
                         setVal('cfgAlgorithm', (mazeData.settings.algorithm.type || 'dfs').toLowerCase());
@@ -1245,7 +1301,7 @@ function initTilePainter() {
         card.addEventListener('click', () => {
             brushCards.forEach(c => c.classList.remove('active'));
             card.classList.add('active');
-            window.activeBrush = card.dataset.brush;
+            window.activeBrush = card.getAttribute('data-brush') || card.dataset.brush;
         });
     });
 
@@ -1273,87 +1329,84 @@ function initTilePainter() {
         }
     });
 
-    const viewportArea = document.querySelector('.viewport-area');
-    if (!viewportArea) return;
+    initCanvasPaintListeners();
+}
 
-    let isMouseDown = false;
+let isCanvasPaintMouseDown = false;
 
-    viewportArea.addEventListener('mousedown', (e) => {
+function initCanvasPaintListeners() {
+    const gridContainer = document.getElementById('gridContainer');
+    if (!gridContainer) return;
+
+    if (gridContainer._hasPaintListeners) return;
+    gridContainer._hasPaintListeners = true;
+
+    const handlePaint = (e) => {
         if (e.button === 0 && (window.isPaintModeActive || window.isShiftHeld)) {
-            isMouseDown = true;
-            // Push undo state ONCE at the start of a paint stroke
+            paintTileAtMouse(e);
+        }
+    };
+
+    gridContainer.addEventListener('mousedown', (e) => {
+        if (e.button === 0 && (window.isPaintModeActive || window.isShiftHeld)) {
+            isCanvasPaintMouseDown = true;
             if (window.currentMazeJSON) {
                 window.editorUndoStack.push(JSON.stringify(window.currentMazeJSON));
                 window.editorRedoStack = [];
             }
-            paintTileAtMouse(e);
+            handlePaint(e);
         }
     });
 
-    viewportArea.addEventListener('mousemove', (e) => {
-        if (isMouseDown && (window.isPaintModeActive || window.isShiftHeld)) {
-            paintTileAtMouse(e);
+    gridContainer.addEventListener('mousemove', (e) => {
+        if (isCanvasPaintMouseDown && (window.isPaintModeActive || window.isShiftHeld)) {
+            handlePaint(e);
         }
     });
 
     window.addEventListener('mouseup', () => {
-        isMouseDown = false;
+        isCanvasPaintMouseDown = false;
     });
 }
 
 function paintTileAtMouse(e) {
-    if (!window.currentMazeJSON) return;
-    const canvas = document.querySelector('.viewport-area canvas');
+    const mazeData = getMazeData(window.currentMazeJSON);
+    if (!mazeData || !mazeData.floors) return;
+    const canvas = document.querySelector('#gridContainer canvas') || document.querySelector('.viewport-area canvas');
     if (!canvas) return;
 
     const rect = canvas.getBoundingClientRect();
-    const floorData = window.currentMazeJSON.floors[window.activeFloorIndex];
-    if (!floorData) return;
+    const floorData = mazeData.floors[window.activeFloorIndex];
+    if (!floorData || !floorData.grid) return;
 
     const grid = floorData.grid;
     const rows = grid.length;
     const cols = grid[0].length;
 
     const cellSize = rect.width / cols;
+    if (!cellSize || cellSize <= 0) return;
+
     const x = Math.floor((e.clientX - rect.left) / cellSize);
     const y = Math.floor((e.clientY - rect.top) / cellSize);
 
     if (x < 0 || x >= cols || y < 0 || y >= rows) return;
 
-    let brush = window.activeBrush;
+    let brush = window.activeBrush || '1';
+    // Get active brush from active card if needed
+    const activeCard = document.querySelector('.brush-card.active');
+    if (activeCard) {
+        brush = activeCard.getAttribute('data-brush') || brush;
+    }
+
     if (brush === '1') brush = 1;
     if (brush === '0') brush = 0;
 
     if (grid[y][x] === brush) return;
 
-    // Condition validations for special single-instance or critical tiles
-    if (brush === 'START') {
-        const confirmPaint = confirm("จุด START มีได้เพียง 1 จุดเท่านั้นในดันเจี้ยน ต้องการย้ายจุด START มายังพิกัดนี้หรือไม่?");
-        if (!confirmPaint) return;
-
-        // Clear existing START tiles across all floors
-        window.currentMazeJSON.floors.forEach(f => {
-            for (let r = 0; r < f.grid.length; r++) {
-                for (let c = 0; c < f.grid[0].length; c++) {
-                    if (f.grid[r][c] === 'START') f.grid[r][c] = 1;
-                }
-            }
-        });
-    } else if (brush === 'BOSS') {
-        const confirmPaint = confirm("ต้องการวางตำแหน่ง BOSS ที่พิกัดนี้หรือไม่?");
-        if (!confirmPaint) return;
-    } else if (brush === 'MINI_BOSS') {
-        const confirmPaint = confirm("ต้องการวางตำแหน่ง MINI_BOSS ที่พิกัดนี้หรือไม่?");
-        if (!confirmPaint) return;
-    } else if (brush === 'STAIRS_UP' || brush === 'STAIRS_DOWN') {
-        const confirmPaint = confirm(`ต้องการวางจุดบันได ${brush === 'STAIRS_UP' ? 'ขึ้น' : 'ลง'} ที่พิกัดนี้หรือไม่?`);
-        if (!confirmPaint) return;
-    }
-
-    // Apply painted tile to current floor grid
+    // Direct paint tile to grid
     grid[y][x] = brush;
 
-    // Dynamically recalculate Guide Path for updated floor grid
+    // Dynamically recalculate Guide Path
     recalculateGuidePath(floorData);
 
     renderCurrentFloor();

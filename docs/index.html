@@ -66,10 +66,6 @@
                     <i class="fa-solid fa-crown"></i>
                     <span data-i18n="tab_rooms">Rooms</span>
                 </button>
-                <button class="nav-icon-item" data-tab="tab-entities" title="Keys & Quest Items">
-                    <i class="fa-solid fa-key"></i>
-                    <span data-i18n="nav_keys">Keys</span>
-                </button>
                 <button class="nav-icon-item" data-tab="tab-tools" title="Map Tools">
                     <i class="fa-solid fa-paint-brush"></i>
                     <span data-i18n="tab_tools">Tools</span>
@@ -141,6 +137,22 @@
                                     <button class="btn-step" onclick="changeVal('cfgFloorHeight', -1)">-</button>
                                     <input type="number" id="cfgFloorHeight" value="5" min="3" max="15" step="1">
                                     <button class="btn-step" onclick="changeVal('cfgFloorHeight', 1)">+</button>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label data-i18n="lbl_foundation_height">Foundation Height (Blocks)</label>
+                                <div class="step-input">
+                                    <button class="btn-step" onclick="changeVal('cfgFoundationHeight', -1)">-</button>
+                                    <input type="number" id="cfgFoundationHeight" value="5" min="0" max="30" step="1">
+                                    <button class="btn-step" onclick="changeVal('cfgFoundationHeight', 1)">+</button>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label data-i18n="lbl_floor_gap">Floor Gap / Ceiling (Blocks)</label>
+                                <div class="step-input">
+                                    <button class="btn-step" onclick="changeVal('cfgFloorGap', -1)">-</button>
+                                    <input type="number" id="cfgFloorGap" value="5" min="0" max="30" step="1">
+                                    <button class="btn-step" onclick="changeVal('cfgFloorGap', 1)">+</button>
                                 </div>
                             </div>
                             <div class="form-group">
@@ -245,10 +257,10 @@
                                 <select id="filterRoomType">
                                     <option value="all">🌟 All Types</option>
                                     <option value="BOSS">👑 Boss Room</option>
-                                    <option value="MINI_BOSS">👹 MiniBoss Room</option>
                                     <option value="START">🏁 Start Room</option>
-                                    <option value="TREASURE">💎 Treasure Room</option>
-                                    <option value="PUZZLE">🧩 Puzzle Room</option>
+                                    <option value="MINI_BOSS">👹 MiniBoss Room</option>
+                                    <option value="TRAP">💣 Trap Room</option>
+                                    <option value="SECRET">💎 Secret Room</option>
                                 </select>
                             </div>
                             <div class="filter-group">
@@ -266,32 +278,7 @@
                         </div>
                     </div>
 
-                    <!-- Tab 3: Keys & Quest Items -->
-                    <div id="tab-entities" class="tab-content">
-                        <div class="panel-header">
-                            <h3><i class="fa-solid fa-key"></i> <span data-i18n="tab_entities">Keys & Quest Items</span></h3>
-                            <button id="btnAddQuestItem" class="icon-btn-primary" title="Add Key">
-                                <i class="fa-solid fa-plus"></i>
-                            </button>
-                        </div>
-                        <p class="tool-desc" data-i18n="desc_quest_items">Manage key items for doors, quest triggers, and treasure locks:</p>
-
-                        <div class="filter-bar">
-                            <div class="filter-group">
-                                <select id="filterQuestMode">
-                                    <option value="all">🌐 All Modes</option>
-                                    <option value="auto">🎲 Auto Placement</option>
-                                    <option value="room">🔒 Locked to Room</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <div id="questItemsList" class="special-rooms-list">
-                            <!-- Custom quest item cards rendered dynamically via JS -->
-                        </div>
-                    </div>
-
-                    <!-- Tab 4: Tools (Tile Painter) -->
+                    <!-- Tab 3: Tools (Tile Painter) -->
                     <div id="tab-tools" class="tab-content">
                         <div class="panel-header">
                             <h3><i class="fa-solid fa-paint-brush"></i> <span data-i18n="tab_tools">Tile Painter</span></h3>
