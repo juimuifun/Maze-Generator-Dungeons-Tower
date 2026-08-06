@@ -91,9 +91,6 @@ export function calculateTileShape(grid, x, y, width, length) {
     const tileVal = grid[y][x];
     if (tileVal === 0) return 'WALL';
 
-    if (typeof tileVal === 'string' && ['START', 'STAIRS_UP', 'STAIRS_DOWN', 'BOSS', 'MINI_BOSS', 'TRAP', 'SECRET', 'DOOR', 'SHOP', 'PORTAL', 'BREAKABLE', 'MONSTER'].includes(tileVal)) {
-        return tileVal;
-    }
 
     const n = (y > 0 && grid[y - 1][x] !== 0);
     const s = (y < length - 1 && grid[y + 1][x] !== 0);
@@ -348,7 +345,7 @@ export function generateMazeV2(config, customRooms = [], customItems = []) {
             for (let c = 0; c < width; c++) {
                 const cellVal = grid[r][c];
                 if (cellVal !== 0) {
-                    let typeStr = (cellVal === 1) ? 'PATH' : String(cellVal);
+                    let typeStr = (cellVal === 1) ? 'path' : String(cellVal).toLowerCase();
                     floorCells.push({
                         x: c,
                         y: r,
