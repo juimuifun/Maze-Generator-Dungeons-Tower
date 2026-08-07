@@ -1147,48 +1147,57 @@ function placeFloorEncounters(grid, width, length, floorNum, totalFloors, monste
     shuffle(deadEndTiles);
 
     // Place SECRET Chests at Dead-Ends guarded by BREAKABLE wall or DOOR
-    const secretCount = Math.min(deadEndTiles.length, Math.floor((secretFreq / 10) * 3));
-    for (let i = 0; i < secretCount && deadEndTiles.length > 0; i++) {
+    const targetSecretCount = Math.floor((secretFreq / 10) * 3);
+    let secretsPlaced = 0;
+
+    while (secretsPlaced < targetSecretCount && deadEndTiles.length > 0) {
         const deadEnd = deadEndTiles.pop();
+        if (!deadEnd.frontTile) continue;
 
-        const isDoorGuard = (rng() > 0.4);
-        const guardType = isDoorGuard ? 'DOOR' : 'BREAKABLE';
+        // Try to find a valid wall candidate around deadEnd to carve as a dead-end secret chest room
+        const dirStraight = { dx: deadEnd.x - deadEnd.frontTile.x, dy: deadEnd.y - deadEnd.frontTile.y };
+        const candidates = [
+            dirStraight,
+            { dx: -dirStraight.dy, dy: dirStraight.dx },
+            { dx: dirStraight.dy, dy: -dirStraight.dx }
+        ];
 
-        // Check if wall tile straight behind deadEnd can be carved as a 2-cell deep dead-end secret room
-        let carvedSecretPos = null;
-        if (deadEnd.frontTile) {
-            const dx = deadEnd.x - deadEnd.frontTile.x;
-            const dy = deadEnd.y - deadEnd.frontTile.y;
-            const sx = deadEnd.x + dx;
-            const sy = deadEnd.y + dy;
+        let validSecretPos = null;
+
+        for (const cand of candidates) {
+            const sx = deadEnd.x + cand.dx;
+            const sy = deadEnd.y + cand.dy;
 
             if (sx > 0 && sx < width - 1 && sy > 0 && sy < length - 1 && grid[sy][sx] === 0) {
-                // Ensure (sx, sy) is surrounded by solid walls on all other 3 sides
-                let wallNeighborCount = 0;
+                // Ensure (sx, sy) has NO other non-wall neighbor except deadEnd
+                let isolated = true;
                 for (const d of dirs) {
                     const nx = sx + d.dx;
                     const ny = sy + d.dy;
                     if (nx === deadEnd.x && ny === deadEnd.y) continue;
-                    if (nx >= 0 && nx < width && ny >= 0 && ny < length && grid[ny][nx] === 0) {
-                        wallNeighborCount++;
+                    if (nx >= 0 && nx < width && ny >= 0 && ny < length && grid[ny][nx] !== 0) {
+                        isolated = false;
+                        break;
                     }
                 }
-                if (wallNeighborCount === 3) {
-                    carvedSecretPos = { x: sx, y: sy };
+                if (isolated) {
+                    validSecretPos = { x: sx, y: sy };
+                    break;
                 }
             }
         }
 
-        const doorPos = { x: deadEnd.x, y: deadEnd.y };
-        const secretPos = carvedSecretPos ? carvedSecretPos : doorPos;
+        // If no 3-wall isolated candidate was found at this deadEnd, try next deadEnd
+        if (!validSecretPos) continue;
 
-        if (carvedSecretPos) {
-            grid[secretPos.y][secretPos.x] = 'SECRET';
-            grid[doorPos.y][doorPos.x] = guardType;
-        } else {
-            // If behind wall cannot be carved without breaking dead-end rule, place guard tile at deadEnd
-            grid[doorPos.y][doorPos.x] = guardType;
-        }
+        const doorPos = { x: deadEnd.x, y: deadEnd.y };
+        const secretPos = validSecretPos;
+
+        const isDoorGuard = (rng() > 0.4);
+        const guardType = isDoorGuard ? 'DOOR' : 'BREAKABLE';
+
+        grid[secretPos.y][secretPos.x] = 'SECRET';
+        grid[doorPos.y][doorPos.x] = guardType;
 
         const doorCoord = toGridNotation(doorPos.x, doorPos.y);
         if (isDoorGuard) {
@@ -1225,6 +1234,8 @@ function placeFloorEncounters(grid, width, length, floorNum, totalFloors, monste
             gridNotation: toGridNotation(secretPos.x, secretPos.y),
             minecraftArea: calculateMinecraftArea(secretPos.x, secretPos.y, floorNum, pathWidth, floorHeight, 1, 1, foundationHeight, floorGap)
         });
+
+        secretsPlaced++;
     }
 
     // Place TRAPS (Chokepoints & Dead-End Lures)
