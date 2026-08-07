@@ -238,13 +238,15 @@ export function generateMazeV2(config, customRooms = [], customItems = []) {
         }
 
         // Find target destination and guide path from startPos on THIS floor
-        const bossRoom = placedRooms.find(r => r.type === 'BOSS');
         let targetTile = null;
-        if (bossRoom) {
-            if (bossRoom.door && bossRoom.door.position) {
-                targetTile = bossRoom.door.position;
-            } else if (bossRoom.center) {
-                targetTile = bossRoom.center;
+        if (isFinalFloor) {
+            const bossRoom = placedRooms.find(r => r.type === 'BOSS');
+            if (bossRoom) {
+                if (bossRoom.center) {
+                    targetTile = bossRoom.center;
+                } else if (bossRoom.door && bossRoom.door.position) {
+                    targetTile = bossRoom.door.position;
+                }
             }
         }
 
