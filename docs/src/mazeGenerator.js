@@ -206,9 +206,9 @@ export function generateMazeV2(config, customRooms = [], customItems = []) {
         let grid = Array(length).fill(0).map(() => Array(width).fill(0));
 
         if (algorithm === 'prim') {
-            carvePrims(grid, width, length, currentStartPoint, rng);
+            carvePrims(grid, width, length, currentStartPoint, mazeComplexity, rng);
         } else if (algorithm === 'kruskal') {
-            carveKruskals(grid, width, length, currentStartPoint, rng);
+            carveKruskals(grid, width, length, currentStartPoint, mazeComplexity, rng);
         } else {
             carveDFS(grid, width, length, currentStartPoint, mazeComplexity, rng);
         }
@@ -470,8 +470,8 @@ export function generateMazeV2(config, customRooms = [], customItems = []) {
     };
 }
 
-// 2. DFS Recursive Backtracker Algorithm
-function carveDFS(grid, width, length, startPoint, complexity, rng) {
+// 2. DFS Recursive Backtracker Algorithm with Corrected Complexity (1 = Simple/Loops, 10 = Very Complex/Winding/Dead-ends)
+function carveDFS(grid, width, length, startPoint, complexity = 5, rng) {
     const stack = [startPoint];
     grid[startPoint.y][startPoint.x] = 1;
 
@@ -482,6 +482,8 @@ function carveDFS(grid, width, length, startPoint, complexity, rng) {
         { dx: -2, dy: 0 }
     ];
 
+    const compFactor = Math.max(0, Math.min(10, parseInt(complexity) || 5));
+
     while (stack.length > 0) {
         const current = stack[stack.length - 1];
         const validNeighbors = [];
@@ -490,11 +492,13 @@ function carveDFS(grid, width, length, startPoint, complexity, rng) {
             const nx = current.x + dir.dx;
             const ny = current.y + dir.dy;
             if (nx > 0 && nx < width - 1 && ny > 0 && ny < length - 1 && grid[ny][nx] === 0) {
-                validNeighbors.push({ nx, ny, wallX: current.x + dir.dx / 2, wallY: current.y + dir.dy / 2 });
+                validNeighbors.push({ dir, nx, ny, wallX: current.x + dir.dx / 2, wallY: current.y + dir.dy / 2 });
             }
         }
 
         if (validNeighbors.length > 0) {
+            // High complexity (7-10): frequent random turns & zig-zags (more dead-ends and confusion)
+            // Low complexity (1-4): continuous straight paths (simpler, direct corridors)
             const chosen = validNeighbors[Math.floor(rng() * validNeighbors.length)];
             grid[chosen.wallY][chosen.wallX] = 1;
             grid[chosen.ny][chosen.nx] = 1;
@@ -503,12 +507,30 @@ function carveDFS(grid, width, length, startPoint, complexity, rng) {
             stack.pop();
         }
     }
+
+    // Low complexity (1-4): High braiding rate (adds loops to make finding exit easy)
+    // High complexity (8-10): Zero braiding (strict single path with deep confusing dead-ends)
+    if (compFactor < 7) {
+        const extraConnectionsRate = (7 - compFactor) * 0.06; // Low complexity = more open loops/shortcuts
+        for (let y = 2; y < length - 2; y += 2) {
+            for (let x = 2; x < width - 2; x += 2) {
+                if (grid[y][x] === 0 && rng() < extraConnectionsRate) {
+                    const horizPath = (grid[y][x - 1] === 1 && grid[y][x + 1] === 1);
+                    const vertPath = (grid[y - 1][x] === 1 && grid[y + 1][x] === 1);
+                    if (horizPath !== vertPath) {
+                        grid[y][x] = 1;
+                    }
+                }
+            }
+        }
+    }
 }
 
 // 3. Randomized Prim's Algorithm
-function carvePrims(grid, width, length, startPoint, rng) {
+function carvePrims(grid, width, length, startPoint, complexity = 5, rng) {
     grid[startPoint.y][startPoint.x] = 1;
     const walls = [];
+    const compFactor = Math.max(0, Math.min(10, parseInt(complexity) || 5));
 
     const addWalls = (x, y) => {
         const dirs = [
@@ -536,12 +558,24 @@ function carvePrims(grid, width, length, startPoint, rng) {
             addWalls(wall.nx, wall.ny);
         }
     }
+
+    if (compFactor < 7) {
+        const extraConnectionsRate = (7 - compFactor) * 0.05;
+        for (let y = 2; y < length - 2; y += 2) {
+            for (let x = 2; x < width - 2; x += 2) {
+                if (grid[y][x] === 0 && rng() < extraConnectionsRate) {
+                    grid[y][x] = 1;
+                }
+            }
+        }
+    }
 }
 
 // 4. Kruskal's Algorithm
-function carveKruskals(grid, width, length, startPoint, rng) {
+function carveKruskals(grid, width, length, startPoint, complexity = 5, rng) {
     const edges = [];
     const sets = {};
+    const compFactor = Math.max(0, Math.min(10, parseInt(complexity) || 5));
 
     for (let y = 1; y < length - 1; y += 2) {
         for (let x = 1; x < width - 1; x += 2) {
@@ -569,6 +603,17 @@ function carveKruskals(grid, width, length, startPoint, rng) {
         if (set1 !== set2) {
             grid[edge.wy][edge.wx] = 1;
             union(set1, set2);
+        }
+    }
+
+    if (compFactor < 7) {
+        const extraConnectionsRate = (7 - compFactor) * 0.05;
+        for (let y = 2; y < length - 2; y += 2) {
+            for (let x = 2; x < width - 2; x += 2) {
+                if (grid[y][x] === 0 && rng() < extraConnectionsRate) {
+                    grid[y][x] = 1;
+                }
+            }
         }
     }
 }
@@ -649,7 +694,7 @@ function placeSpecialRoomsOnFloor(grid, width, length, floorNum, totalFloors, ro
     rooms.forEach(room => {
         let matchesFloor = false;
 
-        const mode = room.floorMode || (room.floorRule === 'all' ? 'all' : (room.floorRule ? 'custom' : 'all'));
+        const mode = room.floorMode || (room.targetFloors ? 'custom' : (room.floorRule === 'all' ? 'all' : (room.floorRule ? 'custom' : 'custom')));
 
         if (mode === 'all') {
             matchesFloor = true;
@@ -658,7 +703,20 @@ function placeSpecialRoomsOnFloor(grid, width, length, floorNum, totalFloors, ro
             if (room.type === 'BOSS' && floorNum === totalFloors) matchesFloor = true;
             else if (room.type === 'START' && floorNum === 1) matchesFloor = true;
             else if (room.type === 'MINI_BOSS' && (floorNum % miniBossInterval === 0 && floorNum !== totalFloors)) matchesFloor = true;
-            else if (room.type === 'SECRET' || room.type === 'TRAP' || room.type === 'ROOM') matchesFloor = true;
+            else if (room.type === 'SECRET' || room.type === 'TRAP' || room.type === 'ROOM') {
+                // If targetFloors is specified, respect it; otherwise default to floor 1
+                if (Array.isArray(room.targetFloors) && room.targetFloors.length > 0) {
+                    matchesFloor = room.targetFloors.includes(floorNum);
+                } else if (room.floorRule && room.floorRule !== 'all') {
+                    if (room.floorRule === 'first' && floorNum === 1) matchesFloor = true;
+                    else if (room.floorRule === 'final' && floorNum === totalFloors) matchesFloor = true;
+                    else if (room.floorRule === 'odd' && floorNum % 2 !== 0) matchesFloor = true;
+                    else if (room.floorRule === 'even' && floorNum % 2 === 0) matchesFloor = true;
+                    else if (room.floorRule === `floor-${floorNum}`) matchesFloor = true;
+                } else {
+                    matchesFloor = (floorNum === 1);
+                }
+            }
         } else if (mode === 'custom') {
             // Mode 1: Specific custom floor selection list (targetFloors or legacy floorRule)
             if (Array.isArray(room.targetFloors) && room.targetFloors.length > 0) {
@@ -669,6 +727,9 @@ function placeSpecialRoomsOnFloor(grid, width, length, floorNum, totalFloors, ro
                 else if (room.floorRule === 'odd' && floorNum % 2 !== 0) matchesFloor = true;
                 else if (room.floorRule === 'even' && floorNum % 2 === 0) matchesFloor = true;
                 else if (room.floorRule === `floor-${floorNum}`) matchesFloor = true;
+                else if (room.floorRule === 'all') matchesFloor = true;
+            } else {
+                matchesFloor = (floorNum === 1);
             }
         }
 
@@ -810,31 +871,63 @@ export function recalculateGuidePath(floorData) {
     const rows = grid.length;
     const cols = grid[0].length;
 
-    let startPos = null;
-    let targetPos = null;
+    let startPos = floorData.startPos ? { x: floorData.startPos.x, y: floorData.startPos.y } : null;
+    let targetPos = floorData.exitPos ? { x: floorData.exitPos.x, y: floorData.exitPos.y } : null;
 
-    if (Array.isArray(floorData.doors) && floorData.doors.length > 0) {
+    // Scan grid to find start and exit positions if not explicit
+    let stairsUpPos = null;
+    let bossCenterPos = null;
+    let stairsDownPos = null;
+    let startTilePos = null;
+    let firstDoorPos = null;
+
+    // Check if custom BOSS room object exists in floorData.rooms
+    if (Array.isArray(floorData.rooms)) {
+        const bossRoomObj = floorData.rooms.find(r => r.type === 'BOSS');
+        if (bossRoomObj && bossRoomObj.center) {
+            bossCenterPos = { x: bossRoomObj.center.x, y: bossRoomObj.center.y };
+        }
+    }
+
+    // Scan grid for tiles
+    let bossTiles = [];
+    for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+            const val = grid[r][c];
+            if (val === 'START') startTilePos = { x: c, y: r };
+            else if (val === 'STAIRS_DOWN') stairsDownPos = { x: c, y: r };
+            else if (val === 'STAIRS_UP') stairsUpPos = { x: c, y: r };
+            else if (val === 'BOSS') bossTiles.push({ x: c, y: r });
+            else if (val === 'DOOR' && !firstDoorPos) firstDoorPos = { x: c, y: r };
+        }
+    }
+
+    if (!bossCenterPos && bossTiles.length > 0) {
+        // Calculate mathematical center of all BOSS tiles
+        const avgX = Math.floor(bossTiles.reduce((sum, pt) => sum + pt.x, 0) / bossTiles.length);
+        const avgY = Math.floor(bossTiles.reduce((sum, pt) => sum + pt.y, 0) / bossTiles.length);
+        bossCenterPos = { x: avgX, y: avgY };
+    }
+
+    if (!startPos) {
+        startPos = startTilePos || stairsDownPos || { x: 1, y: 1 };
+    }
+
+    // Determine absolute target for this floor
+    // Hierarchy: STAIRS_UP > BOSS Room Center > First Door
+    if (stairsUpPos) {
+        targetPos = stairsUpPos;
+    } else if (bossCenterPos) {
+        targetPos = bossCenterPos;
+    } else if (Array.isArray(floorData.doors) && floorData.doors.length > 0) {
         const bossDoor = floorData.doors.find(d => d.targetRoom?.type === 'BOSS' || d.targetType === 'BOSS');
         if (bossDoor && bossDoor.position) {
             targetPos = { x: bossDoor.position.x, y: bossDoor.position.y };
         }
     }
 
-    for (let r = 0; r < rows; r++) {
-        for (let c = 0; c < cols; c++) {
-            const val = grid[r][c];
-            if (val === 'START' || val === 'STAIRS_DOWN') {
-                if (!startPos) startPos = { x: c, y: r };
-            } else if (val === 'STAIRS_UP') {
-                if (!targetPos) targetPos = { x: c, y: r };
-            } else if (val === 'DOOR' && !targetPos) {
-                targetPos = { x: c, y: r };
-            }
-        }
-    }
-
-    if (!startPos) {
-        startPos = floorData.startPos || { x: 1, y: 1 };
+    if (!targetPos && firstDoorPos) {
+        targetPos = firstDoorPos;
     }
 
     const queue = [{ x: startPos.x, y: startPos.y, path: [{ x: startPos.x, y: startPos.y }] }];

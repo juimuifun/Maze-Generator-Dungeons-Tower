@@ -235,7 +235,7 @@ function initSpecialRoomsBuilder() {
                 type: 'SECRET',
                 width: 3,
                 height: 3,
-                floorMode: 'all', // 'all', 'planned', 'custom'
+                floorMode: 'custom', // 'custom', 'planned', 'all'
                 targetFloors: [1], // Used when floorMode is 'custom'
                 expanded: true
             });
@@ -711,7 +711,7 @@ function initInputValidation() {
 // Dynamic Algorithm Recommendation Helper
 function initAlgorithmHelper() {
     const algoSelect = document.getElementById('cfgAlgorithm');
-    const helpAlgo = document.getElementById('helpAlgo');
+    const helpAlgo = document.getElementById('algoHelpText');
 
     if (algoSelect && helpAlgo) {
         algoSelect.addEventListener('change', () => {
