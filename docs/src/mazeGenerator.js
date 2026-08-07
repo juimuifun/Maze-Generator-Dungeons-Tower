@@ -1151,37 +1151,20 @@ function placeFloorEncounters(grid, width, length, floorNum, totalFloors, monste
     for (let i = 0; i < secretCount && deadEndTiles.length > 0; i++) {
         const deadEnd = deadEndTiles.pop();
 
-        // Check if there is a surrounding wall tile to carve secret room behind deadEnd
-        // Ensure the wall candidate is surrounded by solid walls so it NEVER touches room perimeter walls!
-        const wallNeighbors = [];
-        for (const d of dirs) {
-            const nx = deadEnd.x + d.dx;
-            const ny = deadEnd.y + d.dy;
-            if (nx > 0 && nx < width - 1 && ny > 0 && ny < length - 1 && grid[ny][nx] === 0) {
-                let touchesSpecialOrPath = false;
-                for (let checkDy = -1; checkDy <= 1; checkDy++) {
-                    for (let checkDx = -1; checkDx <= 1; checkDx++) {
-                        const cx = nx + checkDx;
-                        const cy = ny + checkDy;
-                        if (cx >= 0 && cx < width && cy >= 0 && cy < length) {
-                            if (cx === deadEnd.x && cy === deadEnd.y) continue;
-                            if (grid[cy][cx] !== 0) {
-                                touchesSpecialOrPath = true;
-                                break;
-                            }
-                        }
-                    }
-                    if (touchesSpecialOrPath) break;
-                }
-                if (!touchesSpecialOrPath) {
-                    wallNeighbors.push({ x: nx, y: ny });
-                }
-            }
+        // Calculate straight wall tile behind deadEnd (opposite to frontTile)
+        let sx = deadEnd.x;
+        let sy = deadEnd.y;
+        if (deadEnd.frontTile) {
+            const dx = deadEnd.x - deadEnd.frontTile.x;
+            const dy = deadEnd.y - deadEnd.frontTile.y;
+            sx = deadEnd.x + dx;
+            sy = deadEnd.y + dy;
         }
 
-        const isGuarded = (rng() > 0.3);
-        if (isGuarded && wallNeighbors.length > 0) {
-            const secretPos = wallNeighbors[0];
+        const canCarveSecret = (sx > 0 && sx < width - 1 && sy > 0 && sy < length - 1 && grid[sy][sx] === 0);
+
+        if (canCarveSecret) {
+            const secretPos = { x: sx, y: sy };
             const doorPos = { x: deadEnd.x, y: deadEnd.y };
 
             grid[secretPos.y][secretPos.x] = 'SECRET';
