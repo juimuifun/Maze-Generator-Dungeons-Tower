@@ -1,6 +1,6 @@
 // DungeonsTower Generator V2 - Main App Controller & i18n System
-import { generateMazeV2, recalculateGuidePath } from './src/mazeGenerator.js';
-import { renderFloorCanvas } from './src/canvasRenderer.js';
+import { generateMazeV2, recalculateGuidePath, toGridNotation } from './src/mazeGenerator.js';
+import { renderFloorCanvas, TILE_EMOJIS } from './src/canvasRenderer.js';
 
 // Language Dictionaries (Base: EN & TH)
 const i18n = {
@@ -91,7 +91,25 @@ const i18n = {
         btn_reset_defaults: "Reset to Defaults",
         lbl_guide_path: "Guide Path",
         placeholder_title: "DungeonsTower Maze Generator",
-        placeholder_desc: "Adjust settings and click \"Regenerate\" to build maze."
+        placeholder_desc: "Adjust settings and click \"Regenerate\" to build maze.",
+        tile_0: "Wall",
+        tile_1: "Path",
+        tile_START: "Start Entrance",
+        tile_STAIRS_UP: "Stairs Up",
+        tile_STAIRS_DOWN: "Stairs Down",
+        tile_BOSS: "Boss Room",
+        tile_MINI_BOSS: "MiniBoss Room",
+        tile_TRAP: "Trap Room",
+        tile_SECRET: "Secret Area",
+        tile_ROOM: "Special Room",
+        tile_TREASURE: "Treasure Room",
+        tile_PUZZLE: "Puzzle Room",
+        tile_MONSTER: "Monster Spawn",
+        tile_DOOR: "Locked Door",
+        tile_QUEST_ITEM: "Key / Quest Item",
+        tile_SHOP: "Merchant Shop",
+        tile_PORTAL: "Teleport Portal",
+        tile_BREAKABLE: "Breakable Wall"
     },
     th: {
         btn_regenerate: "สร้างเขาวงกตใหม่",
@@ -183,7 +201,25 @@ const i18n = {
         btn_reset_defaults: "รีเซ็ตค่าเริ่มต้น",
         lbl_guide_path: "เส้นทางไกด์",
         placeholder_title: "ระบบสร้างเขาวงกต DungeonsTower",
-        placeholder_desc: "ปรับแต่งค่าและกดปุ่ม \"Regenerate\" ด้านบนเพื่อเริ่มเรนเดอร์"
+        placeholder_desc: "ปรับแต่งค่าและกดปุ่ม \"Regenerate\" ด้านบนเพื่อเริ่มเรนเดอร์",
+        tile_0: "กำแพง (Wall)",
+        tile_1: "ทางเดิน (Path)",
+        tile_START: "จุดเริ่มต้นดันเจี้ยน (Start)",
+        tile_STAIRS_UP: "บันไดขึ้น (Stairs Up)",
+        tile_STAIRS_DOWN: "บันไดลง (Stairs Down)",
+        tile_BOSS: "ห้องบอส (Boss Room)",
+        tile_MINI_BOSS: "ห้องมินิบอส (MiniBoss)",
+        tile_TRAP: "ห้องกับดัก (Trap)",
+        tile_SECRET: "พื้นที่ลับ (Secret Area)",
+        tile_ROOM: "ห้องพิเศษ (Room)",
+        tile_TREASURE: "ห้องสมบัติ (Treasure)",
+        tile_PUZZLE: "ห้องปริศนา (Puzzle)",
+        tile_MONSTER: "จุดเกิดมอนสเตอร์ (Monster)",
+        tile_DOOR: "ประตู (Door)",
+        tile_QUEST_ITEM: "กุญแจ / ไอเทมเควส (Key Item)",
+        tile_SHOP: "ร้านค้า NPC (Shop)",
+        tile_PORTAL: "พอร์ทัล (Portal)",
+        tile_BREAKABLE: "กำแพงพังได้ (Breakable)"
     }
 };
 
@@ -923,6 +959,7 @@ function updateMainActionButtonUI() {
 window.currentMazeJSON = null;
 window.activeFloorIndex = 0;
 window.showGuidePath = false;
+window.hoveredCell = null;
 
 function renderCurrentFloor() {
     const container = document.getElementById('gridContainer');
@@ -930,7 +967,7 @@ function renderCurrentFloor() {
     if (!container || !mazeData) return;
 
     const floorData = mazeData.floors[window.activeFloorIndex];
-    renderFloorCanvas(container, floorData, window.showGuidePath);
+    renderFloorCanvas(container, floorData, window.showGuidePath, window.hoveredCell);
     initCanvasPaintListeners();
 }
 
@@ -1411,6 +1448,123 @@ function initCanvasPaintListeners() {
     if (gridContainer._hasPaintListeners) return;
     gridContainer._hasPaintListeners = true;
 
+    const tooltipEl = document.getElementById('cellTooltip');
+
+    const updateHoverInspector = (e) => {
+        const mazeData = getMazeData(window.currentMazeJSON);
+        if (!mazeData || !mazeData.floors) {
+            if (tooltipEl) tooltipEl.style.display = 'none';
+            return;
+        }
+
+        const canvas = document.querySelector('#gridContainer canvas');
+        if (!canvas) {
+            if (tooltipEl) tooltipEl.style.display = 'none';
+            return;
+        }
+
+        const rect = canvas.getBoundingClientRect();
+        const floorData = mazeData.floors[window.activeFloorIndex];
+        if (!floorData || !floorData.grid) return;
+
+        const grid = floorData.grid;
+        const rows = grid.length;
+        const cols = grid[0].length;
+
+        const c = Math.floor((e.clientX - rect.left) / rect.width * cols);
+        const r = Math.floor((e.clientY - rect.top) / rect.height * rows);
+
+        if (c < 0 || c >= cols || r < 0 || r >= rows) {
+            if (tooltipEl) tooltipEl.style.display = 'none';
+            if (window.hoveredCell) {
+                window.hoveredCell = null;
+                renderCurrentFloor();
+            }
+            return;
+        }
+
+        // Check if hovered cell changed
+        const prevHovered = window.hoveredCell;
+        if (!prevHovered || prevHovered.r !== r || prevHovered.c !== c) {
+            window.hoveredCell = { r, c };
+            renderCurrentFloor();
+        }
+
+        // Update Floating Tooltip UI
+        if (tooltipEl) {
+            const val = grid[r][c];
+            const dictionary = i18n[currentLang] || i18n.en;
+            const tileName = dictionary[`tile_${val}`] || val;
+            const emoji = TILE_EMOJIS[val] || (val === 0 ? '⬛' : (val === 1 ? '🟦' : '📍'));
+
+            const tooltipEmoji = document.getElementById('tooltipEmoji');
+            const tooltipTitle = document.getElementById('tooltipTitle');
+            const tooltipSub = document.getElementById('tooltipSub');
+            const tooltipItem = document.getElementById('tooltipItem');
+            const tooltipCoords = document.getElementById('tooltipCoords');
+
+            if (tooltipEmoji) tooltipEmoji.textContent = emoji;
+            if (tooltipTitle) tooltipTitle.textContent = tileName;
+
+            // 1. Room info check
+            let roomName = '';
+            if (floorData.rooms) {
+                const rm = floorData.rooms.find(m => m.bounds && c >= m.bounds.x && c < m.bounds.x + m.bounds.width && r >= m.bounds.y && r < m.bounds.y + m.bounds.height);
+                if (rm) roomName = rm.name || rm.type;
+            }
+            if (tooltipSub) {
+                if (roomName) {
+                    tooltipSub.style.display = 'block';
+                    tooltipSub.textContent = `🏛️ Room: ${roomName}`;
+                } else {
+                    tooltipSub.style.display = 'none';
+                }
+            }
+
+            // 2. Key / Item / Entity info check
+            let entityName = '';
+            if (floorData.entities) {
+                const ent = floorData.entities.find(e => e.x === c && e.y === r);
+                if (ent) entityName = ent.name || ent.keyId || ent.type;
+            }
+            if (!entityName && floorData.doors) {
+                const dr = floorData.doors.find(d => d.x === c && d.y === r);
+                if (dr) entityName = `Door (${dr.keyId || dr.type})`;
+            }
+            if (tooltipItem) {
+                if (entityName) {
+                    tooltipItem.style.display = 'block';
+                    tooltipItem.textContent = `🔑 Key/Item: ${entityName}`;
+                } else {
+                    tooltipItem.style.display = 'none';
+                }
+            }
+
+            // 3. Grid Coordinates Notation
+            const notation = toGridNotation(c, r);
+            if (tooltipCoords) {
+                tooltipCoords.textContent = `Pos: ${notation} (Col ${c + 1}, Row ${r + 1})`;
+            }
+
+            // Position calculation with edge detection
+            const tooltipWidth = tooltipEl.offsetWidth || 160;
+            const tooltipHeight = tooltipEl.offsetHeight || 80;
+            let left = e.clientX + 14;
+            let top = e.clientY + 14;
+
+            if (left + tooltipWidth > window.innerWidth - 10) {
+                left = e.clientX - tooltipWidth - 10;
+            }
+            if (top + tooltipHeight > window.innerHeight - 10) {
+                top = e.clientY - tooltipHeight - 10;
+            }
+
+            tooltipEl.style.left = `${left}px`;
+            tooltipEl.style.top = `${top}px`;
+            tooltipEl.style.display = 'block';
+        }
+    };
+
     const handlePaint = (e) => {
         if (e.button === 0 && (window.isPaintModeActive || window.isShiftHeld)) {
             paintTileAtMouse(e);
@@ -1431,6 +1585,15 @@ function initCanvasPaintListeners() {
     gridContainer.addEventListener('mousemove', (e) => {
         if (isCanvasPaintMouseDown && (window.isPaintModeActive || window.isShiftHeld)) {
             handlePaint(e);
+        }
+        updateHoverInspector(e);
+    });
+
+    gridContainer.addEventListener('mouseleave', () => {
+        if (tooltipEl) tooltipEl.style.display = 'none';
+        if (window.hoveredCell) {
+            window.hoveredCell = null;
+            renderCurrentFloor();
         }
     });
 

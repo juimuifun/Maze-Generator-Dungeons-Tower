@@ -2,27 +2,27 @@
 
 // Color palette mapping for all tile and room types
 const TILE_COLORS = {
-    0: '#0f172a',            // Wall (Dark Slate Black)
-    1: '#1e293b',            // Path (Dark Navy Slate)
-    'START': '#10b981',      // Start Room / Entrance (Solid Emerald Green)
-    'STAIRS_UP': '#3b82f6',  // Stairs Up (Bright Royal Blue)
-    'STAIRS_DOWN': '#6366f1',// Stairs Down (Indigo)
-    'BOSS': '#ef4444',       // Boss Chamber (Solid Crimson Red)
-    'MINI_BOSS': '#f97316',  // MiniBoss Arena (Solid Vibrant Orange)
-    'TRAP': '#eab308',      // Trap Room (Solid Warning Yellow)
-    'SECRET': '#06b6d4',    // Secret Room (Solid Cyan)
-    'ROOM': '#6366f1',      // Normal / Custom Room (Indigo/Blue)
-    'TREASURE': '#06b6d4',   // Legacy Treasure
-    'PUZZLE': '#eab308',     // Legacy Puzzle
-    'MONSTER': '#a855f7',   // Monster Spawn (Purple)
-    'DOOR': '#84cc16',      // Locked Door (Lime Green)
-    'QUEST_ITEM': '#ec4899',// Key / Quest Item (Pink)
-    'SHOP': '#14b8a6',      // Merchant Shop NPC (Teal)
-    'PORTAL': '#8b5cf6',    // Teleport Portal (Violet)
-    'BREAKABLE': '#78350f'  // Breakable Wall (Brown)
+    0: '#0f172a',            // Wall (Dark Slate)
+    1: '#334155',            // Path (Sleek Slate Blue)
+    'START': '#059669',      // Start Room / Entrance (Emerald)
+    'STAIRS_UP': '#334155',  // Stairs Up (Path background)
+    'STAIRS_DOWN': '#334155',// Stairs Down (Path background)
+    'BOSS': '#dc2626',       // Boss Chamber (Crimson Red)
+    'MINI_BOSS': '#ea580c',  // MiniBoss Arena (Orange)
+    'TRAP': '#334155',       // Trap (Path background)
+    'SECRET': '#0891b2',     // Secret Room (Cyan)
+    'ROOM': '#4f46e5',       // Normal / Custom Room (Indigo)
+    'TREASURE': '#0891b2',   // Legacy Treasure
+    'PUZZLE': '#ea580c',     // Legacy Puzzle
+    'MONSTER': '#334155',    // Monster Spawn (Path background)
+    'DOOR': '#334155',       // Locked Door (Path background)
+    'QUEST_ITEM': '#334155', // Key / Quest Item (Path background)
+    'SHOP': '#334155',       // Merchant Shop NPC (Path background)
+    'PORTAL': '#334155',     // Teleport Portal (Path background)
+    'BREAKABLE': '#78350f'   // Breakable Wall (Brown)
 };
 
-const TILE_EMOJIS = {
+export const TILE_EMOJIS = {
     'START': '🏁',
     'STAIRS_UP': '⬆️',
     'STAIRS_DOWN': '⬇️',
@@ -52,7 +52,7 @@ const ROOM_STROKES = {
     'PUZZLE': 'rgba(255, 255, 255, 0.7)'
 };
 
-export function renderFloorCanvas(container, floorData, showGuidePath = false) {
+export function renderFloorCanvas(container, floorData, showGuidePath = false, hoveredCell = null) {
     if (!container || !floorData) return;
 
     const grid = floorData.grid;
@@ -75,7 +75,7 @@ export function renderFloorCanvas(container, floorData, showGuidePath = false) {
 
     const ctx = canvas.getContext('2d');
 
-    // 1. Draw Grid Matrix Tiles (Solid Room & Path Fill)
+    // 1. Draw Grid Matrix Tiles (Smooth Continuous Path & Wall Surfaces)
     for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
             const val = grid[r][c];
@@ -86,12 +86,7 @@ export function renderFloorCanvas(container, floorData, showGuidePath = false) {
             ctx.fillStyle = TILE_COLORS[val] || TILE_COLORS[1];
             ctx.fillRect(x, y, cellSize, cellSize);
 
-            // Cell grid border line
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
-            ctx.lineWidth = 1;
-            ctx.strokeRect(x, y, cellSize, cellSize);
-
-            // Draw Emoji icons for all special tiles (START, BOSS, MINI_BOSS, Stairs, Doors, Traps, etc.)
+            // Draw Emoji icons ONLY for special tiles (Stairs, Doors, Traps, Monsters, Keys, etc.)
             if (TILE_EMOJIS[val]) {
                 ctx.font = `${Math.floor(cellSize * 0.65)}px sans-serif`;
                 ctx.textAlign = 'center';
@@ -153,6 +148,19 @@ export function renderFloorCanvas(container, floorData, showGuidePath = false) {
         });
 
         ctx.stroke();
+    }
+
+    // 4. Hovered Cell Highlight Ring
+    if (hoveredCell && hoveredCell.r >= 0 && hoveredCell.r < rows && hoveredCell.c >= 0 && hoveredCell.c < cols) {
+        const hx = hoveredCell.c * cellSize;
+        const hy = hoveredCell.r * cellSize;
+
+        ctx.fillStyle = 'rgba(56, 189, 248, 0.28)';
+        ctx.fillRect(hx, hy, cellSize, cellSize);
+
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(hx + 1, hy + 1, cellSize - 2, cellSize - 2);
     }
 
     container.appendChild(canvas);

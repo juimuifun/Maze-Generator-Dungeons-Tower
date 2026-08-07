@@ -1255,3 +1255,58 @@ input[type=number] {
 .icon-btn-sm { width: 28px; height: 28px; font-size: 0.75rem; }
 .icon-btn-ghost { border: none; font-size: 1.1rem; color: var(--text-muted); }
 .icon-btn-ghost:hover { color: var(--text-main); }
+
+/* ==========================================================================
+   Hover Cell Inspector Tooltip
+   ========================================================================== */
+.cell-tooltip {
+    position: fixed;
+    z-index: 9999;
+    pointer-events: none;
+    background: rgba(15, 23, 42, 0.94);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(99, 102, 241, 0.35);
+    border-radius: 8px;
+    padding: 8px 12px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.6), 0 0 15px rgba(99, 102, 241, 0.25);
+    color: #f8fafc;
+    font-size: 0.8rem;
+    white-space: nowrap;
+    transition: opacity 0.1s ease;
+}
+
+.cell-tooltip .tooltip-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: #ffffff;
+}
+
+.cell-tooltip .tooltip-emoji {
+    font-size: 1.15rem;
+}
+
+.cell-tooltip .tooltip-sub {
+    font-size: 0.76rem;
+    color: #818cf8;
+    margin-top: 3px;
+    font-weight: 600;
+}
+
+.cell-tooltip .tooltip-item {
+    font-size: 0.74rem;
+    color: #f472b6;
+    margin-top: 2px;
+    font-weight: 600;
+}
+
+.cell-tooltip .tooltip-coords {
+    font-size: 0.7rem;
+    color: #94a3b8;
+    margin-top: 4px;
+    font-family: monospace;
+    letter-spacing: 0.5px;
+}
