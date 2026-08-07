@@ -1161,7 +1161,22 @@ function placeFloorEncounters(grid, width, length, floorNum, totalFloors, monste
             sy = deadEnd.y + dy;
         }
 
-        const canCarveSecret = (sx > 0 && sx < width - 1 && sy > 0 && sy < length - 1 && grid[sy][sx] === 0);
+        // Verify that (sx, sy) is a wall tile AND has 3 surrounding solid wall neighbors (so SECRET is strictly a dead-end!)
+        let canCarveSecret = false;
+        if (sx > 0 && sx < width - 1 && sy > 0 && sy < length - 1 && grid[sy][sx] === 0) {
+            let wallNeighborCount = 0;
+            for (const d of dirs) {
+                const nx = sx + d.dx;
+                const ny = sy + d.dy;
+                if (nx === deadEnd.x && ny === deadEnd.y) continue;
+                if (nx >= 0 && nx < width && ny >= 0 && ny < length && grid[ny][nx] === 0) {
+                    wallNeighborCount++;
+                }
+            }
+            if (wallNeighborCount === 3) {
+                canCarveSecret = true;
+            }
+        }
 
         if (canCarveSecret) {
             const secretPos = { x: sx, y: sy };
