@@ -293,8 +293,23 @@ export function generateMazeV2(config, customRooms = [], customItems = []) {
                     grid[miniBossTile.y][miniBossTile.x] = 'MINI_BOSS';
                 }
                 
-                // Place DOOR right in front of MiniBoss and sync required key item
-                const doorTile = guidePath[guidePath.length - 3];
+                // Place DOOR in front of MiniBoss on a non-intersection corridor tile
+                let doorTile = null;
+                for (let idx = guidePath.length - 3; idx >= 1; idx--) {
+                    const pt = guidePath[idx];
+                    if (grid[pt.y][pt.x] === 1) {
+                        let openCount = 0;
+                        for (const d of [{ dx: 0, dy: -1 }, { dx: 1, dy: 0 }, { dx: 0, dy: 1 }, { dx: -1, dy: 0 }]) {
+                            if (grid[pt.y + d.dy] && grid[pt.y + d.dy][pt.x + d.dx] !== 0) openCount++;
+                        }
+                        if (openCount <= 2) {
+                            doorTile = pt;
+                            break;
+                        }
+                    }
+                }
+                if (!doorTile) doorTile = guidePath[guidePath.length - 3];
+
                 if (doorTile && grid[doorTile.y][doorTile.x] === 1) {
                     grid[doorTile.y][doorTile.x] = 'DOOR';
                     const doorCoord = toGridNotation(doorTile.x, doorTile.y);
@@ -325,7 +340,22 @@ export function generateMazeV2(config, customRooms = [], customItems = []) {
                 grid[exitPos.y][exitPos.x] = 'BOSS';
 
                 if (guidePath.length > 2) {
-                    const doorTile = guidePath[guidePath.length - 2];
+                    let doorTile = null;
+                    for (let idx = guidePath.length - 2; idx >= 1; idx--) {
+                        const pt = guidePath[idx];
+                        if (grid[pt.y][pt.x] === 1) {
+                            let openCount = 0;
+                            for (const d of [{ dx: 0, dy: -1 }, { dx: 1, dy: 0 }, { dx: 0, dy: 1 }, { dx: -1, dy: 0 }]) {
+                                if (grid[pt.y + d.dy] && grid[pt.y + d.dy][pt.x + d.dx] !== 0) openCount++;
+                            }
+                            if (openCount <= 2) {
+                                doorTile = pt;
+                                break;
+                            }
+                        }
+                    }
+                    if (!doorTile) doorTile = guidePath[guidePath.length - 2];
+
                     if (doorTile && grid[doorTile.y][doorTile.x] === 1) {
                         grid[doorTile.y][doorTile.x] = 'DOOR';
                         const doorCoord = toGridNotation(doorTile.x, doorTile.y);
@@ -1072,22 +1102,22 @@ function placeFloorEncounters(grid, width, length, floorNum, totalFloors, monste
                     continue;
                 }
 
-                let nearDoorOrStairs = false;
+                let nearSpecialRoom = false;
                 for (let dy = -2; dy <= 2; dy++) {
                     for (let dx = -2; dx <= 2; dx++) {
                         const checkY = y + dy;
                         const checkX = x + dx;
                         if (checkY >= 0 && checkY < length && checkX >= 0 && checkX < width) {
                             const v = grid[checkY][checkX];
-                            if (v === 'DOOR' || v === 'STAIRS_UP' || v === 'STAIRS_DOWN' || v === 'START') {
-                                nearDoorOrStairs = true;
+                            if (v !== 0 && v !== 1) {
+                                nearSpecialRoom = true;
                                 break;
                             }
                         }
                     }
-                    if (nearDoorOrStairs) break;
+                    if (nearSpecialRoom) break;
                 }
-                if (nearDoorOrStairs) continue;
+                if (nearSpecialRoom) continue;
 
                 let wallCount = 0;
                 let openNeighbor = null;
@@ -1120,49 +1150,92 @@ function placeFloorEncounters(grid, width, length, floorNum, totalFloors, monste
     const secretCount = Math.min(deadEndTiles.length, Math.floor((secretFreq / 10) * 3));
     for (let i = 0; i < secretCount && deadEndTiles.length > 0; i++) {
         const deadEnd = deadEndTiles.pop();
-        grid[deadEnd.y][deadEnd.x] = 'SECRET';
 
-        if (deadEnd.frontTile && grid[deadEnd.frontTile.y][deadEnd.frontTile.x] === 1) {
+        // Check if there is a surrounding wall tile to carve secret room behind deadEnd
+        // Ensure the wall candidate is surrounded by solid walls so it NEVER touches room perimeter walls!
+        const wallNeighbors = [];
+        for (const d of dirs) {
+            const nx = deadEnd.x + d.dx;
+            const ny = deadEnd.y + d.dy;
+            if (nx > 0 && nx < width - 1 && ny > 0 && ny < length - 1 && grid[ny][nx] === 0) {
+                let touchesSpecialOrPath = false;
+                for (let checkDy = -1; checkDy <= 1; checkDy++) {
+                    for (let checkDx = -1; checkDx <= 1; checkDx++) {
+                        const cx = nx + checkDx;
+                        const cy = ny + checkDy;
+                        if (cx >= 0 && cx < width && cy >= 0 && cy < length) {
+                            if (cx === deadEnd.x && cy === deadEnd.y) continue;
+                            if (grid[cy][cx] !== 0) {
+                                touchesSpecialOrPath = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (touchesSpecialOrPath) break;
+                }
+                if (!touchesSpecialOrPath) {
+                    wallNeighbors.push({ x: nx, y: ny });
+                }
+            }
+        }
+
+        const isGuarded = (rng() > 0.3);
+        if (isGuarded && wallNeighbors.length > 0) {
+            const secretPos = wallNeighbors[0];
+            const doorPos = { x: deadEnd.x, y: deadEnd.y };
+
+            grid[secretPos.y][secretPos.x] = 'SECRET';
+
             const isDoorGuard = (rng() > 0.5);
             const guardType = isDoorGuard ? 'DOOR' : 'BREAKABLE';
-            grid[deadEnd.frontTile.y][deadEnd.frontTile.x] = guardType;
+            grid[doorPos.y][doorPos.x] = guardType;
 
             if (isDoorGuard) {
-                const secretDoorCoord = toGridNotation(deadEnd.frontTile.x, deadEnd.frontTile.y);
+                const secretDoorCoord = toGridNotation(doorPos.x, doorPos.y);
                 const secretKeyId = `key_secret_${secretDoorCoord.toLowerCase()}_f${floorNum}`;
                 const secretKeyObj = {
                     id: secretKeyId,
                     type: 'KEY',
                     floorRule: `floor-${floorNum}`,
-                    targetDoor: { x: deadEnd.frontTile.x, y: deadEnd.frontTile.y, gridNotation: secretDoorCoord }
+                    targetDoor: { x: doorPos.x, y: doorPos.y, gridNotation: secretDoorCoord }
                 };
                 autoGeneratedKeys.push(secretKeyObj);
                 floorDoors.push({
                     id: `door-secret-${secretDoorCoord.toLowerCase()}-f${floorNum}`,
-                    position: { x: deadEnd.frontTile.x, y: deadEnd.frontTile.y, gridNotation: secretDoorCoord },
+                    position: { x: doorPos.x, y: doorPos.y, gridNotation: secretDoorCoord },
                     floor: floorNum,
                     targetType: 'SECRET',
                     requiredKey: secretKeyObj,
-                    minecraftArea: calculateMinecraftArea(deadEnd.frontTile.x, deadEnd.frontTile.y, floorNum, pathWidth, floorHeight, 1, 1, foundationHeight, floorGap)
+                    minecraftArea: calculateMinecraftArea(doorPos.x, doorPos.y, floorNum, pathWidth, floorHeight, 1, 1, foundationHeight, floorGap)
                 });
             } else {
-                // BREAKABLE wall entity record with standard spatial metadata
                 placedEntities.push({
                     type: 'BREAKABLE',
-                    x: deadEnd.frontTile.x,
-                    y: deadEnd.frontTile.y,
-                    gridNotation: toGridNotation(deadEnd.frontTile.x, deadEnd.frontTile.y),
-                    minecraftArea: calculateMinecraftArea(deadEnd.frontTile.x, deadEnd.frontTile.y, floorNum, pathWidth, floorHeight, 1, 1, foundationHeight, floorGap)
+                    x: doorPos.x,
+                    y: doorPos.y,
+                    gridNotation: toGridNotation(doorPos.x, doorPos.y),
+                    minecraftArea: calculateMinecraftArea(doorPos.x, doorPos.y, floorNum, pathWidth, floorHeight, 1, 1, foundationHeight, floorGap)
                 });
             }
+
+            placedEntities.push({
+                type: 'SECRET',
+                x: secretPos.x,
+                y: secretPos.y,
+                gridNotation: toGridNotation(secretPos.x, secretPos.y),
+                minecraftArea: calculateMinecraftArea(secretPos.x, secretPos.y, floorNum, pathWidth, floorHeight, 1, 1, foundationHeight, floorGap)
+            });
+        } else {
+            // Unguarded secret chest at deadEnd
+            grid[deadEnd.y][deadEnd.x] = 'SECRET';
+            placedEntities.push({
+                type: 'SECRET',
+                x: deadEnd.x,
+                y: deadEnd.y,
+                gridNotation: deadEnd.gridNotation,
+                minecraftArea: calculateMinecraftArea(deadEnd.x, deadEnd.y, floorNum, pathWidth, floorHeight, 1, 1, foundationHeight, floorGap)
+            });
         }
-        placedEntities.push({
-            type: 'SECRET',
-            x: deadEnd.x,
-            y: deadEnd.y,
-            gridNotation: deadEnd.gridNotation,
-            minecraftArea: calculateMinecraftArea(deadEnd.x, deadEnd.y, floorNum, pathWidth, floorHeight, 1, 1, foundationHeight, floorGap)
-        });
     }
 
     // Place TRAPS (Chokepoints & Dead-End Lures)
