@@ -11,6 +11,7 @@ const TILE_COLORS = {
     'MINI_BOSS': '#f97316',  // MiniBoss Arena (Solid Vibrant Orange)
     'TRAP': '#eab308',      // Trap Room (Solid Warning Yellow)
     'SECRET': '#06b6d4',    // Secret Room (Solid Cyan)
+    'ROOM': '#6366f1',      // Normal / Custom Room (Indigo/Blue)
     'TREASURE': '#06b6d4',   // Legacy Treasure
     'PUZZLE': '#eab308',     // Legacy Puzzle
     'MONSTER': '#a855f7',   // Monster Spawn (Purple)
@@ -29,6 +30,7 @@ const TILE_EMOJIS = {
     'MINI_BOSS': '👹',
     'TRAP': '💣',
     'SECRET': '💎',
+    'ROOM': '🏛️',
     'TREASURE': '💎',
     'PUZZLE': '💣',
     'MONSTER': '🧟',
@@ -45,6 +47,7 @@ const ROOM_STROKES = {
     'START': 'rgba(255, 255, 255, 0.7)',
     'TRAP': 'rgba(255, 255, 255, 0.7)',
     'SECRET': 'rgba(255, 255, 255, 0.7)',
+    'ROOM': 'rgba(255, 255, 255, 0.7)',
     'TREASURE': 'rgba(255, 255, 255, 0.7)',
     'PUZZLE': 'rgba(255, 255, 255, 0.7)'
 };

@@ -287,7 +287,8 @@ function renderSpecialRooms() {
         START: '🏁',
         MINI_BOSS: '👹',
         TRAP: '💣',
-        SECRET: '💎'
+        SECRET: '💎',
+        ROOM: '🏛️'
     };
 
     // Filter room list by active floor & room type filters
@@ -375,6 +376,7 @@ function renderSpecialRooms() {
                         <option value="MINI_BOSS" ${room.type === 'MINI_BOSS' ? 'selected' : ''}>👹 MiniBoss Room</option>
                         <option value="TRAP" ${room.type === 'TRAP' ? 'selected' : ''}>💣 Trap Room</option>
                         <option value="SECRET" ${room.type === 'SECRET' ? 'selected' : ''}>💎 Secret Room</option>
+                        <option value="ROOM" ${room.type === 'ROOM' ? 'selected' : ''}>🏛️ Normal Room</option>
                     </select>
                 </div>
 
@@ -1189,7 +1191,21 @@ function initImportJSON() {
                 }
 
                 if (mazeData.specialRooms && Array.isArray(mazeData.specialRooms)) {
-                    window.customSpecialRooms = [...mazeData.specialRooms];
+                    window.customSpecialRooms = mazeData.specialRooms.map(r => {
+                        const w = parseInt(r.width) || 3;
+                        const h = parseInt(r.height) || 3;
+                        const t = r.type || 'SECRET';
+                        return {
+                            id: r.id || ('room-' + Math.random().toString(36).substr(2, 9)),
+                            name: r.name || '',
+                            type: t,
+                            width: w,
+                            height: h,
+                            floorMode: r.floorMode || 'all',
+                            targetFloors: Array.isArray(r.targetFloors) ? r.targetFloors : [1],
+                            expanded: false
+                        };
+                    });
                     renderSpecialRooms();
                 }
 
